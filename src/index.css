@@ -1,0 +1,243 @@
+/* stylelint-disable */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Montserrat variable font */
+@font-face {
+  font-family: 'Montserrat';
+  src: url('https://resource-static.bj.bcebos.com/fonts/Montserrat-VariableFont_wght.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ── Inter comme fallback système ─────────────────────────── */
+
+@layer base {
+  /* Utilitaires pour Safe Area Inset (encoches et claviers virtuels) */
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 16px);
+  }
+  .pt-safe {
+    padding-top: env(safe-area-inset-top, 16px);
+  }
+  
+  :root {
+    --radius: 0.375rem;
+
+    /* Thème Clair Modifié : Accentuation des textes gris (muted) pour assurer la lisibilité au soleil */
+    --background: 0 0% 100%;
+    --foreground: 222.2 47.4% 11.2%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 47.4% 11.2%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 47.4% 11.2%;
+
+    /* Primary: deep slate — used only on CTAs, active states */
+    --primary: 222.2 47.4% 11.2%;
+    --primary-foreground: 210 40% 98%;
+
+    /* Secondary: light neutral */
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+
+    /* Muted: text-muted-foreground rendu significativement plus sombre pour le thème clair */
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215 16% 40%; /* Gris plus sombre pour un bon contraste WCAG */
+
+    /* Accent: signal blue — badges, indicators */
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 214.3 31.8% 85%; /* Bordures plus définies */
+    --input: 214.3 31.8% 85%;
+    --ring: 222.2 84% 4.9%;
+
+    /* Shadow: minimal */
+    --shadow-card: 0 0px 0px 0 rgb(0 0 0 / 0.00);
+    --shadow-hover: 0 0px 0px 0 rgb(0 0 0 / 0.00);
+
+    /* Chart colors */
+    --chart-1: 220 56% 42%;
+    --chart-2: 142 60% 40%;
+    --chart-3: 25 80% 52%;
+    --chart-4: 280 50% 52%;
+    --chart-5: 0 72% 51%;
+
+    /* Sidebar */
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 222.2 47.4% 11.2%;
+    --sidebar-primary: 222.2 47.4% 11.2%;
+    --sidebar-primary-foreground: 210 40% 98%;
+    --sidebar-accent: 210 40% 96.1%;
+    --sidebar-accent-foreground: 222.2 47.4% 11.2%;
+    --sidebar-border: 214.3 31.8% 91.4%;
+    --sidebar-ring: 222.2 84% 4.9%;
+
+    /* Status colors */
+    --success: 142 60% 40%;
+    --warning: 38 92% 50%;
+    --info: 211 75% 46%;
+  }
+
+  .dark {
+    /* Thème Sombre Modifié : Augmentation des contrastes pour la lisibilité sur écrans mobiles ou en forte luminosité extérieure */
+    --background: 220 12% 5%; /* Légèrement plus "lumineux" que l'ancien noir absolu */
+    --foreground: 0 0% 100%; /* Blanc absolu pour un contraste maximal */
+
+    --card: 224 10% 8%; /* Contraste subtil par rapport au fond */
+    --card-foreground: 0 0% 98%;
+
+    --popover: 224 10% 8%;
+    --popover-foreground: 0 0% 98%;
+
+    --primary: 0 0% 100%; /* Texte ou boutons "Primary" éclatants */
+    --primary-foreground: 220 12% 5%;
+
+    --secondary: 220 10% 16%;
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 220 10% 14%;
+    --muted-foreground: 240 5% 75%; /* Gris plus clair, plus facile à lire */
+
+    --accent: 220 10% 16%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 62.8% 55.6%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 10% 20%; /* Bordures un peu plus visibles pour bien séparer l'interface */
+    --input: 220 10% 20%;
+    --ring: 240 4.9% 83.9%;
+
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border)) transparent;
+  }
+
+  html {
+    overflow-x: hidden;
+    /* Smooth scroll global */
+    scroll-behavior: smooth;
+    width: 100%;
+    /* Fix pour Safari mobile: empêcher le bounce effect au delà des limites horizontales */
+    overscroll-behavior-x: none;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Montserrat', system-ui, sans-serif;
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden;
+    width: 100%;
+    max-width: 100vw;
+    /* Empêche les éléments de forcer l'élargissement de la page */
+    position: relative;
+  }
+
+  /* Sur les grands écrans (≥1920px) on augmente légèrement la taille de base */
+  @media (min-width: 1920px) {
+    body {
+      font-size: 17px;
+    }
+  }
+
+  @media (min-width: 2560px) {
+    body {
+      font-size: 18px;
+    }
+  }
+
+  #root {
+    overflow-x: hidden;
+    width: 100%;
+    max-width: 100vw;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Montserrat', system-ui, sans-serif;
+    line-height: 1.25;
+    letter-spacing: -0.01em;
+  }
+
+  /* Focus visible accessible */
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
+
+  /* Sélection de texte */
+  ::selection {
+    background: hsl(var(--primary) / 0.15);
+    color: hsl(var(--foreground));
+  }
+
+  /* Images responsives par défaut */
+  img {
+    max-width: 100%;
+    height: auto;
+  }
+}
+
+@layer utilities {
+  /* Scrollbar masquée sur certains conteneurs (ex: onglets horizontaux) */
+  .scrollbar-none {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Gradient text helper */
+  .gradient-text {
+    background-image: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent)));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Animation shake pour erreur de formulaire */
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    10%, 50%, 90% { transform: translateX(-4px); }
+    30%, 70% { transform: translateX(4px); }
+  }
+  .animate-shake {
+    animation: shake 0.5s ease-in-out;
+  }
+
+  /* Entrée douce */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .animate-fade-up {
+    animation: fadeUp 0.4s ease-out both;
+  }
+}

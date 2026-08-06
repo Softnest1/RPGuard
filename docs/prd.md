@@ -1,0 +1,657 @@
+# Document d'exigences
+
+## 1. Aperçu de l'application
+
+### 1.1 Nom de l'application
+RPGuard - Plateforme communautaire de transparence pour joueurs RP
+
+### 1.2 Description
+RPGuard est une plateforme communautaire permettant aux joueurs de jeux vidéo de type RolePlay (GTA RP, ONESTATE RP, etc.) de déposer des plaintes contre des administrateurs abusant de leur pouvoir. La plateforme offre un espace transparent où les joueurs peuvent partager leurs expériences, consulter les plaintes d'autres joueurs, voter et commenter pour construire une communauté plus juste.
+
+### 1.3 Architecture technique
+- Frontend : React + TypeScript + Vite + Tailwind CSS + shadcn/ui
+- Backend : Supabase (Auth, Database avec RLS, Storage, Edge Functions, Realtime, Scheduled Tasks)
+- Langue : Français
+- Principe : 100% de la logique backend gérée par Supabase, aucune logique métier côté client
+
+## 2. Utilisateurs et scénarios d'utilisation
+
+### 2.1 Utilisateurs cibles
+- Joueurs de jeux RP (GTA RP, ONESTATE RP, autres jeux RP)
+- Joueurs utilisant différentes plateformes (mobile, PC, tablette, iOS)
+- Communauté francophone de joueurs
+- Administrateurs de la plateforme
+
+### 2.2 Scénarios principaux
+- Un joueur victime d'abus de pouvoir dépose une plainte avec preuves
+- Un joueur consulte les plaintes existantes pour vérifier la réputation d'un serveur
+- La communauté vote et commente les plaintes pour soutenir ou contester
+- Un joueur suit l'évolution de ses plaintes déposées
+- Un joueur consulte les scores des serveurs en temps réel
+- Un administrateur modère les plaintes et gère les utilisateurs
+- Un utilisateur récupère son mot de passe via question de sécurité
+- Un utilisateur recherche et contacte d'autres utilisateurs via messagerie en temps réel
+- Un utilisateur envoie des messages texte, emojis et messages vocaux à d'autres utilisateurs
+
+## 3. Exigences de style et design
+
+### 3.1 Template Minimal
+- Design aéré avec hiérarchie visuelle via espaces blancs
+- Tailles de police et espacements pour structurer l'information
+- Quasi aucune ombre ni couleur décorative
+- Contraste doux pour une lecture confortable
+- Typographie fine et élégante
+- Interface adaptée aux gamers mais sobre et lisible
+
+### 3.2 Principes d'interface
+- Mise en page épurée privilégiant la lisibilité
+- Espaces blancs généreux entre les sections
+- Hiérarchie typographique claire (titres, sous-titres, corps de texte)
+- Palette de couleurs sobre avec accents discrets
+- Éléments interactifs minimalistes (boutons, liens)
+- Badges de catégorie colorés pour identification rapide
+- Indicateurs visuels forts pour les votes et statuts
+- Bulles de messages claires pour la messagerie (style iMessage/WhatsApp)
+
+## 4. Structure des pages et fonctionnalités
+
+### 4.1 Structure des pages
+
+```
+├── Page d'accueil
+├── Inscription/Connexion
+│   ├── Page d'inscription
+│   ├── Page de connexion
+│   └── Page de récupération de mot de passe
+├── Dépôt de plainte
+├── Liste des plaintes
+├── Détail d'une plainte
+├── Tableau de bord utilisateur
+│   ├── Profil
+│   ├── Mes plaintes
+│   └── Notifications
+├── Messagerie
+│   ├── Liste des conversations
+│   ├── Recherche d'utilisateurs
+│   └── Fenêtre de conversation
+├── Page scores serveurs
+├── Page contact/signalement
+└── Panel administrateur
+    ├── Gestion des plaintes
+    ├── Gestion des utilisateurs
+    └── Statistiques
+```
+
+### 4.2 Page d'accueil
+
+#### 4.2.1 Hero section
+- Titre principal percutant : « Votre voix contre les abus de pouvoir »
+- Slogan : « Ensemble, construisons une communauté RP plus juste et transparente »
+- Bouton d'appel à l'action principal : « Déposer une plainte »
+- Bouton secondaire : « Consulter les plaintes »
+
+#### 4.2.2 Statistiques de confiance
+- Afficher le nombre total de plaintes déposées
+- Afficher le nombre de jeux/serveurs concernés
+- Afficher le nombre d'utilisateurs inscrits
+- Compteur en temps réel de nouvelles plaintes (mise à jour automatique via Supabase Realtime)
+
+#### 4.2.3 Section « Comment ça marche »
+- Étape 1 : Créez votre compte gratuitement
+- Étape 2 : Déposez votre plainte avec preuves
+- Étape 3 : La communauté vote et soutient votre cause
+
+#### 4.2.4 Section « Pourquoi signaler ? »
+- Protéger la communauté des abus de pouvoir
+- Donner de la visibilité aux comportements inappropriés
+- Aider les joueurs à choisir des serveurs sains
+- Encourager les administrateurs à respecter les règles
+
+#### 4.2.5 Plaintes récentes mises en avant
+- Afficher les 5 dernières plaintes avec badge de vérification si preuves solides
+- Pour chaque plainte : nom du jeu/serveur, nom de l'administrateur, extrait de la description, nombre de votes, badge de catégorie coloré, date de dépôt
+- Lien vers le détail de chaque plainte
+
+#### 4.2.6 Section FAQ
+- Questions fréquentes avec réponses courtes
+- Exemples : « Comment déposer une plainte ? », « Mes données sont-elles protégées ? », « Que se passe-t-il après le dépôt ? », « Comment fonctionne le système de votes ? »
+
+#### 4.2.7 Footer
+- Liens : Mentions légales, Règlement de la plateforme, Contact
+- Copyright et informations légales
+
+### 4.3 Inscription/Connexion
+
+#### 4.3.1 Page d'inscription
+- Message de bienvenue : « Rejoignez la communauté RPGuard »
+- Formulaire avec champs : nom d'utilisateur, adresse email, mot de passe, confirmation du mot de passe, question de sécurité (sélection parmi liste prédéfinie), réponse à la question de sécurité
+- Validation des champs (format email, longueur mot de passe)
+- Création du compte utilisateur via Supabase Auth
+- Enregistrement de la question et réponse de sécurité (hashée) dans la base de données
+- Design minimaliste et épuré
+
+#### 4.3.2 Page de connexion
+- Message de bienvenue : « Bon retour sur RPGuard »
+- Formulaire avec champs : email, mot de passe
+- Authentification de l'utilisateur via Supabase Auth
+- Lien vers la page de récupération de mot de passe
+- Redirection vers la page d'accueil après connexion réussie
+- Design minimaliste et épuré
+
+#### 4.3.3 Page de récupération de mot de passe
+- Formulaire avec champs : email
+- Vérification de l'existence de l'email dans la base de données
+- Affichage de la question de sécurité associée au compte
+- Champ pour saisir la réponse à la question de sécurité
+- Vérification de la réponse via Edge Function
+- Si réponse correcte : permettre la réinitialisation du mot de passe
+- Si réponse incorrecte : afficher un message d'erreur
+
+#### 4.3.4 Déconnexion
+- Bouton de déconnexion accessible depuis le menu utilisateur
+- Déconnexion via Supabase Auth
+- Redirection vers la page d'accueil
+
+### 4.4 Dépôt de plainte
+
+#### 4.4.1 Accès
+- Accessible uniquement aux utilisateurs connectés
+
+#### 4.4.2 Formulaire guidé
+- Étape 1 : Informations du serveur
+  + Champ : Nom du jeu/serveur (texte libre)
+  + Champ : Catégorie de jeu (sélection parmi : GTA RP, ONESTATE RP, Autres jeux RP, Autres jeux)
+  + Champ : Nom de l'administrateur concerné (texte libre)
+- Étape 2 : Description de l'incident
+  + Champ : Description détaillée de l'abus (zone de texte)
+  + Indication : « Soyez précis et factuel »
+- Étape 3 : Preuves
+  + Champ : Preuves/Screenshots (téléchargement de fichiers vers Supabase Storage)
+  + Message de rassurance : « Vos preuves sont stockées de manière sécurisée et confidentielle »
+- Bouton de soumission : « Publier ma plainte »
+
+#### 4.4.3 Enregistrement
+- Enregistrer la plainte avec statut « En attente » via Supabase Database
+- Associer la plainte à l'utilisateur connecté
+- Stocker les screenshots dans Supabase Storage
+- Générer les URLs publiques des preuves
+- Déclencher une Edge Function pour attribution automatique du badge de vérification si preuves présentes
+- Redirection vers le détail de la plainte créée
+
+### 4.5 Liste des plaintes
+
+#### 4.5.1 Affichage des plaintes
+- Design de carte clair pour chaque plainte
+- Pour chaque plainte : badge de catégorie coloré, nom du jeu/serveur, nom de l'administrateur, extrait de la description, indicateur de votes visuellement fort (upvote/downvote), nombre de commentaires, statut, badge de vérification si preuves solides, date de dépôt
+
+#### 4.5.2 Filtres
+- Filtre par catégorie de jeu (GTA RP, ONESTATE RP, Autres jeux RP, Autres jeux)
+- Filtre par nom de jeu/serveur (recherche textuelle)
+- Filtre par statut (En attente, Validée, Rejetée)
+
+#### 4.5.3 Tri
+- Tri par date (plus récentes en premier par défaut)
+- Tri par nombre de votes (plus votées en premier)
+
+### 4.6 Détail d'une plainte
+
+#### 4.6.1 Informations de la plainte
+- Afficher toutes les informations : badge de catégorie coloré, nom du jeu/serveur, nom de l'administrateur, description complète, statut, badge de vérification si preuves solides, date de dépôt, auteur
+
+#### 4.6.2 Présentation des preuves
+- Afficher les screenshots/preuves de manière claire et organisée
+- Possibilité d'agrandir les images
+
+#### 4.6.3 Timeline des événements
+- Afficher la chronologie : date de dépôt, date de mise à jour du statut, nombre de votes reçus, nombre de commentaires
+
+#### 4.6.4 Système de votes bien visible
+- Bouton upvote (soutien) avec compteur
+- Bouton downvote (contestation) avec compteur
+- Afficher le score total (upvote - downvote) de manière visuellement forte
+- Un utilisateur connecté peut voter une seule fois par plainte
+- Gestion des votes via Edge Function
+
+#### 4.6.5 Commentaires
+- Afficher tous les commentaires associés à la plainte
+- Pour chaque commentaire : auteur, contenu, date de publication
+- Formulaire d'ajout de commentaire (accessible aux utilisateurs connectés)
+- Enregistrement des commentaires via Supabase Database
+
+#### 4.6.6 Signalement
+- Bouton de signalement de fausse plainte (accessible aux utilisateurs connectés)
+- Enregistrer le signalement via Supabase Database
+- Déclencher une Edge Function pour vérifier le nombre de signalements et marquer pour modération si seuil atteint
+
+### 4.7 Tableau de bord utilisateur
+
+#### 4.7.1 Accès
+- Accessible uniquement à l'utilisateur connecté
+
+#### 4.7.2 Section Profil
+- Afficher les informations du profil : nom d'utilisateur, email, date d'inscription
+- Possibilité de modifier le nom d'utilisateur
+- Possibilité de modifier la question et réponse de sécurité
+
+#### 4.7.3 Section Mes plaintes
+- Statistiques visuelles : nombre total de plaintes déposées, nombre de plaintes par statut (En attente, Validée, Rejetée)
+- Graphique ou indicateurs visuels pour les statistiques
+- Afficher toutes les plaintes déposées par l'utilisateur
+- Pour chaque plainte : nom du jeu/serveur, nom de l'administrateur, statut, nombre de votes, nombre de commentaires, date de dépôt
+- Lien vers le détail de chaque plainte
+
+#### 4.7.4 Section Notifications
+- Afficher les notifications de l'utilisateur (nouveau commentaire sur ses plaintes, changement de statut, etc.)
+- Marquer les notifications comme lues
+- Gestion des notifications via Supabase Realtime
+
+#### 4.7.5 Accès rapide aux actions
+- Bouton : « Déposer une nouvelle plainte »
+- Bouton : « Consulter toutes les plaintes »
+
+### 4.8 Messagerie
+
+#### 4.8.1 Accès
+- Accessible uniquement aux utilisateurs connectés
+- Accessible via le menu principal ou le tableau de bord utilisateur
+
+#### 4.8.2 Liste des conversations
+- Afficher toutes les conversations de l'utilisateur
+- Pour chaque conversation : nom d'utilisateur du contact, dernier message, date du dernier message, indicateur de message non lu
+- Tri par date du dernier message (plus récent en premier)
+- Bouton pour démarrer une nouvelle conversation
+
+#### 4.8.3 Recherche d'utilisateurs
+- Champ de recherche pour trouver des utilisateurs par nom d'utilisateur
+- Afficher les résultats de recherche en temps réel
+- Pour chaque résultat : nom d'utilisateur, bouton pour démarrer une conversation
+- Enregistrement de la nouvelle conversation via Supabase Database
+
+#### 4.8.4 Fenêtre de conversation
+- Afficher tous les messages de la conversation
+- Pour chaque message : contenu (texte, emoji ou message vocal), auteur, date d'envoi
+- Affichage en bulles de messages (style iMessage/WhatsApp)
+- Messages de l'utilisateur connecté alignés à droite
+- Messages du contact alignés à gauche
+- Champ de saisie de message en bas de la fenêtre
+- Bouton d'envoi de message
+- Sélecteur d'emojis
+- Bouton d'enregistrement de message vocal
+
+#### 4.8.5 Envoi de messages texte et emojis
+- Saisir un message dans le champ de saisie
+- Sélectionner des emojis via le sélecteur
+- Envoyer le message via le bouton d'envoi
+- Enregistrement du message via Supabase Database
+- Mise à jour en temps réel de la conversation via Supabase Realtime
+
+#### 4.8.6 Enregistrement et envoi de messages vocaux
+- Appuyer sur le bouton d'enregistrement pour démarrer l'enregistrement
+- Enregistrer l'audio via le microphone de l'appareil
+- Arrêter l'enregistrement
+- Prévisualiser le message vocal enregistré
+- Envoyer le message vocal
+- Stockage du fichier audio dans Supabase Storage
+- Enregistrement du message avec référence au fichier audio via Supabase Database
+- Mise à jour en temps réel de la conversation via Supabase Realtime
+
+#### 4.8.7 Lecture de messages vocaux
+- Afficher les messages vocaux avec un lecteur audio
+- Possibilité de lire, mettre en pause, reprendre la lecture
+- Afficher la durée du message vocal
+
+### 4.9 Page scores serveurs
+
+#### 4.9.1 Affichage des scores
+- Liste des serveurs avec leur score calculé en temps réel
+- Pour chaque serveur : nom du serveur, catégorie de jeu, nombre total de plaintes, nombre de plaintes validées, score global (basé sur votes et statuts)
+- Tri par score (meilleurs serveurs en premier par défaut)
+- Filtre par catégorie de jeu
+
+#### 4.9.2 Calcul des scores
+- Score calculé via Edge Function basée sur : nombre de plaintes, statuts des plaintes, votes de la communauté
+- Mise à jour en temps réel via Supabase Realtime
+
+### 4.10 Page contact/signalement
+
+#### 4.10.1 Formulaire de contact
+- Champs : nom, email, sujet, message
+- Envoi du message via Edge Function
+- Enregistrement dans la base de données pour suivi
+
+#### 4.10.2 Signalement de problème technique
+- Formulaire dédié pour signaler un bug ou problème technique
+- Champs : description du problème, capture d'écran (optionnel)
+- Enregistrement via Supabase Database
+
+### 4.11 Panel administrateur
+
+#### 4.11.1 Accès
+- Accessible uniquement aux utilisateurs avec rôle administrateur
+- Vérification du rôle via Supabase RLS
+
+#### 4.11.2 Gestion des plaintes
+- Liste de toutes les plaintes avec filtres avancés (statut, date, nombre de signalements)
+- Actions possibles : changer le statut (En attente, Validée, Rejetée), supprimer une plainte
+- Afficher les signalements associés à chaque plainte
+- Modification du statut via Edge Function
+
+#### 4.11.3 Gestion des utilisateurs
+- Liste de tous les utilisateurs avec informations : nom d'utilisateur, email, date d'inscription, nombre de plaintes déposées
+- Actions possibles : suspendre un utilisateur, supprimer un utilisateur
+- Gestion via Supabase Database et Auth
+
+#### 4.11.4 Statistiques
+- Tableau de bord avec statistiques globales : nombre total de plaintes, nombre de plaintes par statut, nombre d'utilisateurs actifs, nombre de votes, nombre de commentaires
+- Graphiques visuels pour les tendances (plaintes par jour, par catégorie, etc.)
+- Données calculées via Edge Functions et affichées en temps réel
+
+### 4.12 Catégories de jeux
+
+#### 4.12.1 Page de catégorie
+- Afficher les plaintes filtrées par catégorie sélectionnée (GTA RP, ONESTATE RP, Autres jeux RP, Autres jeux)
+- Même affichage et fonctionnalités que la liste des plaintes
+
+## 5. Services backend Supabase
+
+### 5.1 Base de données
+
+#### 5.1.1 Table users
+- id (UUID, clé primaire)
+- username (texte, unique)
+- email (texte, unique)
+- role (enum : user, admin, par défaut user)
+- security_question_id (UUID, référence security_questions.id)
+- security_answer_hash (texte)
+- created_at (timestamp)
+
+#### 5.1.2 Table security_questions
+- id (UUID, clé primaire)
+- question (texte)
+
+#### 5.1.3 Table categories
+- id (UUID, clé primaire)
+- name (texte : GTA RP, ONESTATE RP, Autres jeux RP, Autres jeux)
+
+#### 5.1.4 Table plaintes
+- id (UUID, clé primaire)
+- user_id (UUID, référence users.id)
+- category_id (UUID, référence categories.id)
+- game_server_name (texte)
+- admin_name (texte)
+- description (texte)
+- status (enum : En attente, Validée, Rejetée)
+- has_strong_evidence (booléen, pour badge de vérification)
+- created_at (timestamp)
+- updated_at (timestamp)
+
+#### 5.1.5 Table votes
+- id (UUID, clé primaire)
+- plainte_id (UUID, référence plaintes.id)
+- user_id (UUID, référence users.id)
+- vote_type (enum : upvote, downvote)
+- created_at (timestamp)
+- Contrainte unique : (plainte_id, user_id)
+
+#### 5.1.6 Table commentaires
+- id (UUID, clé primaire)
+- plainte_id (UUID, référence plaintes.id)
+- user_id (UUID, référence users.id)
+- content (texte)
+- created_at (timestamp)
+
+#### 5.1.7 Table signalements
+- id (UUID, clé primaire)
+- plainte_id (UUID, référence plaintes.id)
+- user_id (UUID, référence users.id)
+- created_at (timestamp)
+
+#### 5.1.8 Table preuves
+- id (UUID, clé primaire)
+- plainte_id (UUID, référence plaintes.id)
+- file_path (texte, chemin dans Supabase Storage)
+- created_at (timestamp)
+
+#### 5.1.9 Table notifications
+- id (UUID, clé primaire)
+- user_id (UUID, référence users.id)
+- plainte_id (UUID, référence plaintes.id, nullable)
+- type (enum : nouveau_commentaire, changement_statut, nouveau_vote)
+- message (texte)
+- is_read (booléen, par défaut false)
+- created_at (timestamp)
+
+#### 5.1.10 Table contact_messages
+- id (UUID, clé primaire)
+- name (texte)
+- email (texte)
+- subject (texte)
+- message (texte)
+- created_at (timestamp)
+
+#### 5.1.11 Table conversations
+- id (UUID, clé primaire)
+- user1_id (UUID, référence users.id)
+- user2_id (UUID, référence users.id)
+- created_at (timestamp)
+- Contrainte unique : (user1_id, user2_id)
+
+#### 5.1.12 Table messages
+- id (UUID, clé primaire)
+- conversation_id (UUID, référence conversations.id)
+- sender_id (UUID, référence users.id)
+- content (texte, nullable)
+- message_type (enum : text, voice)
+- voice_file_path (texte, nullable, chemin dans Supabase Storage)
+- is_read (booléen, par défaut false)
+- created_at (timestamp)
+
+### 5.2 Authentification Supabase
+- Utiliser Supabase Auth avec méthode email/password
+- Gestion des sessions utilisateur
+- Vérification de l'authentification pour les actions protégées
+- Gestion des rôles (user, admin) via champ role dans table users
+
+### 5.3 Supabase Storage
+- Bucket dédié pour les screenshots/preuves
+- Stockage des fichiers uploadés lors du dépôt de plainte
+- Génération d'URLs publiques pour affichage des preuves
+- Bucket dédié pour les messages vocaux
+- Stockage des fichiers audio enregistrés
+- Génération d'URLs pour lecture des messages vocaux
+
+### 5.4 Row Level Security (RLS)
+- Lecture publique des plaintes, votes, commentaires
+- Création de plainte : uniquement utilisateurs authentifiés
+- Création de vote : uniquement utilisateurs authentifiés
+- Création de commentaire : uniquement utilisateurs authentifiés
+- Création de signalement : uniquement utilisateurs authentifiés
+- Modification/suppression de plainte : uniquement par l'auteur ou administrateur
+- Accès aux notifications : uniquement par l'utilisateur concerné
+- Accès au panel administrateur : uniquement utilisateurs avec rôle admin
+- Modification du statut de plainte : uniquement administrateurs
+- Gestion des utilisateurs : uniquement administrateurs
+- Accès aux conversations : uniquement par les participants de la conversation
+- Création de conversation : uniquement utilisateurs authentifiés
+- Création de message : uniquement par les participants de la conversation
+- Lecture de message : uniquement par les participants de la conversation
+
+### 5.5 Edge Functions
+- Fonction pour comptage des votes (upvote - downvote)
+- Fonction pour gestion des signalements multiples (marquer plainte pour modération si seuil atteint)
+- Fonction pour mise à jour du statut de plainte par modération
+- Fonction pour attribution automatique du badge de vérification si preuves solides
+- Fonction pour calcul des scores serveurs en temps réel
+- Fonction pour vérification de la réponse à la question de sécurité lors de la récupération de mot de passe
+- Fonction pour envoi des messages de contact
+- Fonction pour création de notifications lors d'événements (nouveau commentaire, changement de statut, nouveau vote)
+- Fonction pour création de conversation entre deux utilisateurs
+- Fonction pour envoi de message dans une conversation
+
+### 5.6 Supabase Realtime
+- Abonnement en temps réel aux nouvelles plaintes pour mise à jour du compteur sur la page d'accueil
+- Abonnement en temps réel aux notifications pour l'utilisateur connecté
+- Abonnement en temps réel aux scores serveurs pour mise à jour automatique
+- Abonnement en temps réel aux messages d'une conversation pour mise à jour instantanée
+- Abonnement en temps réel aux conversations pour mise à jour de la liste des conversations
+
+### 5.7 Scheduled Tasks
+- Tâche planifiée pour nettoyage des notifications anciennes (plus de 30 jours)
+- Tâche planifiée pour calcul et mise à jour des scores serveurs (toutes les heures)
+
+## 6. Règles métier et logique
+
+### 6.1 Gestion des statuts de plainte
+- Statut initial : « En attente »
+- Statut « Validée » : plainte jugée légitime par la modération
+- Statut « Rejetée » : plainte jugée fausse ou non fondée par la modération
+- Changement de statut uniquement par les administrateurs via panel admin
+
+### 6.2 Badge de vérification
+- Attribué automatiquement aux plaintes avec au moins une preuve (screenshot) uploadée
+- Attribution gérée par Edge Function lors de la création de la plainte
+
+### 6.3 Système de votes
+- Un utilisateur connecté peut voter (upvote ou downvote) une seule fois par plainte
+- Un utilisateur peut modifier son vote (passer de upvote à downvote ou inversement)
+- Le score total = nombre d'upvotes - nombre de downvotes
+- Gestion des votes via Edge Function pour garantir l'unicité et la cohérence
+
+### 6.4 Système de signalement
+- Un utilisateur connecté peut signaler une plainte comme fausse
+- Plusieurs signalements sur une même plainte (seuil : 5 signalements) déclenchent une révision par la modération
+- Edge Function vérifie le nombre de signalements et marque la plainte pour modération si seuil atteint
+- La modération peut changer le statut de la plainte en « Rejetée » si jugée fausse
+
+### 6.5 Commentaires
+- Seuls les utilisateurs connectés peuvent commenter
+- Les commentaires sont publics et visibles par tous
+- Création d'une notification pour l'auteur de la plainte lors d'un nouveau commentaire
+
+### 6.6 Preuves/Screenshots
+- Les fichiers téléchargés sont stockés dans Supabase Storage
+- Les preuves sont affichées dans le détail de la plainte via URLs publiques
+
+### 6.7 Compteur en temps réel
+- Le compteur de nouvelles plaintes sur la page d'accueil se met à jour automatiquement via Supabase Realtime
+- Affiche le nombre de plaintes déposées dans les dernières 24 heures
+
+### 6.8 Notifications
+- Création automatique de notifications lors d'événements : nouveau commentaire sur une plainte de l'utilisateur, changement de statut d'une plainte de l'utilisateur, nouveau vote sur une plainte de l'utilisateur
+- Notifications gérées via Edge Functions
+- Affichage en temps réel via Supabase Realtime
+
+### 6.9 Scores serveurs
+- Score calculé pour chaque serveur basé sur : nombre total de plaintes, nombre de plaintes validées, votes de la communauté
+- Formule de calcul : Score = (nombre de plaintes validées × 10) + (total des votes négatifs) - (total des votes positifs)
+- Score plus élevé = serveur avec plus de problèmes
+- Calcul effectué via Edge Function et Scheduled Task (mise à jour toutes les heures)
+- Affichage en temps réel via Supabase Realtime
+
+### 6.10 Récupération de mot de passe
+- Utilisateur saisit son email
+- Système affiche la question de sécurité associée au compte
+- Utilisateur saisit la réponse
+- Edge Function vérifie la réponse (comparaison avec hash stocké)
+- Si réponse correcte : permettre la réinitialisation du mot de passe via Supabase Auth
+- Si réponse incorrecte : afficher un message d'erreur, limiter les tentatives (3 tentatives maximum)
+
+### 6.11 Rôles et permissions
+- Rôle « user » : peut déposer des plaintes, voter, commenter, signaler, utiliser la messagerie
+- Rôle « admin » : peut tout faire + accès au panel admin (gestion des plaintes, utilisateurs, statistiques)
+- Vérification des rôles via Supabase RLS
+
+### 6.12 Messagerie en temps réel
+- Seuls les utilisateurs connectés peuvent accéder à la messagerie
+- Un utilisateur peut rechercher d'autres utilisateurs par nom d'utilisateur
+- Un utilisateur peut démarrer une conversation avec un autre utilisateur
+- Une conversation est créée entre deux utilisateurs via Edge Function
+- Les messages sont envoyés et reçus en temps réel via Supabase Realtime
+- Les messages peuvent contenir du texte et des emojis
+- Les messages vocaux sont enregistrés via le microphone de l'appareil
+- Les fichiers audio des messages vocaux sont stockés dans Supabase Storage
+- Les messages vocaux sont lus via un lecteur audio dans l'interface
+- Les messages sont affichés en bulles (style iMessage/WhatsApp)
+- Les messages de l'utilisateur connecté sont alignés à droite
+- Les messages du contact sont alignés à gauche
+- Les conversations sont triées par date du dernier message
+- Les messages non lus sont indiqués visuellement
+
+## 7. Cas exceptionnels et limites
+
+| Situation | Comportement attendu |
+|-----------|----------------------|
+| Utilisateur non connecté tente de déposer une plainte | Redirection vers la page de connexion |
+| Utilisateur non connecté tente de voter | Redirection vers la page de connexion |
+| Utilisateur non connecté tente de commenter | Redirection vers la page de connexion |
+| Utilisateur non connecté tente d'accéder à la messagerie | Redirection vers la page de connexion |
+| Formulaire de dépôt incomplet | Afficher un message d'erreur, empêcher la soumission |
+| Aucune plainte ne correspond aux filtres | Afficher un message « Aucune plainte trouvée » |
+| Utilisateur tente de voter deux fois sur la même plainte | Remplacer le vote précédent par le nouveau via Edge Function |
+| Plainte signalée 5 fois ou plus | Marquer la plainte pour révision modération via Edge Function |
+| Échec d'upload de screenshot | Afficher un message d'erreur, permettre de réessayer |
+| Session expirée | Redirection vers la page de connexion |
+| Compteur en temps réel ne se met pas à jour | Afficher la dernière valeur connue |
+| Réponse incorrecte à la question de sécurité | Afficher un message d'erreur, limiter à 3 tentatives |
+| Utilisateur non admin tente d'accéder au panel admin | Redirection vers la page d'accueil avec message d'erreur |
+| Échec de connexion Supabase Realtime | Afficher les données en mode statique, proposer de rafraîchir |
+| Utilisateur tente de démarrer une conversation avec lui-même | Afficher un message d'erreur, empêcher la création |
+| Échec d'enregistrement de message vocal | Afficher un message d'erreur, permettre de réessayer |
+| Échec d'upload de message vocal | Afficher un message d'erreur, permettre de réessayer |
+| Aucun résultat de recherche d'utilisateur | Afficher un message « Aucun utilisateur trouvé » |
+| Conversation ne se met pas à jour en temps réel | Afficher les derniers messages connus, proposer de rafraîchir |
+| Échec de lecture de message vocal | Afficher un message d'erreur |
+
+## 8. Critères de validation
+
+1. Un utilisateur s'inscrit avec un nom d'utilisateur, email, mot de passe et question de sécurité
+2. L'utilisateur se connecte avec ses identifiants
+3. L'utilisateur accède au formulaire de dépôt de plainte
+4. L'utilisateur remplit le formulaire (nom du jeu/serveur, catégorie, nom de l'administrateur, description, preuves) et soumet
+5. La plainte apparaît dans la liste des plaintes avec statut « En attente » et badge de vérification
+6. Un autre utilisateur consulte le détail de la plainte, vote (upvote) et ajoute un commentaire
+7. L'auteur de la plainte reçoit une notification en temps réel
+8. L'auteur de la plainte accède à son tableau de bord et visualise sa plainte avec le vote et le commentaire reçus
+9. Un administrateur accède au panel admin, change le statut de la plainte en « Validée »
+10. L'utilisateur consulte la page scores serveurs et voit le score du serveur concerné mis à jour en temps réel
+11. L'utilisateur accède à la messagerie et recherche un autre utilisateur
+12. L'utilisateur démarre une conversation avec l'utilisateur trouvé
+13. L'utilisateur envoie un message texte avec emoji
+14. L'utilisateur enregistre et envoie un message vocal
+15. L'autre utilisateur reçoit les messages en temps réel et répond
+
+## 9. Fonctionnalités non incluses dans cette version
+
+- Notifications par email ou push
+- Système de badges ou récompenses pour les utilisateurs actifs
+- Modération automatique par intelligence artificielle
+- Export des plaintes en PDF
+- Statistiques avancées par serveur ou administrateur
+- Système de réputation pour les administrateurs
+- Intégration avec les plateformes de jeux (API)
+- Multilingue (autres langues que le français)
+- Mode sombre/clair
+- Recherche avancée avec opérateurs booléens
+- Historique des modifications de plainte
+- Système de tags personnalisés
+- Gestion avancée des rôles (modérateur, super-admin)
+- Système de récompenses pour les contributeurs actifs
+- Partage sur les réseaux sociaux
+- Système de suivi par email des plaintes
+- Comparaison de serveurs
+- Classement des serveurs par nombre de plaintes
+- Système de vérification d'identité des utilisateurs
+- Système de médiation entre joueurs et administrateurs
+- Forum de discussion
+- Système de tickets de support
+- Analyse de sentiment des commentaires
+- Système de parrainage
+- Programme de fidélité
+- Appels vocaux ou vidéo dans la messagerie
+- Partage de fichiers (images, documents) dans la messagerie
+- Messagerie de groupe
+- Statut en ligne/hors ligne des utilisateurs
+- Accusés de réception des messages
+- Suppression ou modification de messages envoyés
+- Recherche dans l'historique des messages
+- Archivage de conversations
