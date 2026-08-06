@@ -44,6 +44,7 @@ import {
   UserPlus,
   LogOut,
   CheckCircle2,
+  Scale,
 } from 'lucide-react';
 import CategoryBadge from '@/components/common/CategoryBadge';
 import StatusBadge from '@/components/common/StatusBadge';
@@ -879,6 +880,23 @@ export default function PlainteDetailPage() {
               </div>
             </div>
           )}
+        </section>
+
+        {/* Lien règlement */}
+        <section className="py-4 border-b border-border">
+          <div className="flex items-center gap-2">
+            <Scale className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+            <p className="text-xs text-muted-foreground">
+              Ce dossier est traité conformément au{' '}
+              <Link
+                to="/reglement"
+                className="font-medium text-foreground underline underline-offset-2 hover:text-primary transition-colors"
+              >
+                Règlement RPGuard (15 articles)
+              </Link>
+              . La modération peut citer un article lors de sa décision.
+            </p>
+          </div>
         </section>
 
         {/* Signaler */}

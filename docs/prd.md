@@ -32,6 +32,8 @@ RPGuard est une plateforme communautaire permettant aux joueurs de jeux vidéo d
 - Un utilisateur récupère son mot de passe via question de sécurité
 - Un utilisateur recherche et contacte d'autres utilisateurs via messagerie en temps réel
 - Un utilisateur envoie des messages texte, emojis et messages vocaux à d'autres utilisateurs
+- Un utilisateur consulte le règlement de la plateforme
+- Un administrateur cite des articles du règlement lors du traitement des plaintes
 
 ## 3. Exigences de style et design
 
@@ -75,6 +77,7 @@ RPGuard est une plateforme communautaire permettant aux joueurs de jeux vidéo d
 │   ├── Recherche d'utilisateurs
 │   └── Fenêtre de conversation
 ├── Page scores serveurs
+├── Page Règlement RPGuard
 ├── Page contact/signalement
 └── Panel administrateur
     ├── Gestion des plaintes
@@ -223,6 +226,10 @@ RPGuard est une plateforme communautaire permettant aux joueurs de jeux vidéo d
 - Enregistrer le signalement via Supabase Database
 - Déclencher une Edge Function pour vérifier le nombre de signalements et marquer pour modération si seuil atteint
 
+#### 4.6.7 Lien vers le règlement
+- Afficher un lien vers la page Règlement RPGuard
+- Texte du lien : « Consulter le règlement de la plateforme »
+
 ### 4.7 Tableau de bord utilisateur
 
 #### 4.7.1 Accès
@@ -312,43 +319,120 @@ RPGuard est une plateforme communautaire permettant aux joueurs de jeux vidéo d
 - Score calculé via Edge Function basée sur : nombre de plaintes, statuts des plaintes, votes de la communauté
 - Mise à jour en temps réel via Supabase Realtime
 
-### 4.10 Page contact/signalement
+### 4.10 Page Règlement RPGuard
 
-#### 4.10.1 Formulaire de contact
+#### 4.10.1 Accès
+- Accessible publiquement (utilisateurs connectés et non connectés)
+- Accessible via le footer de la page d'accueil
+- Accessible via le menu principal de navigation
+- Accessible via lien depuis le détail d'une plainte
+
+#### 4.10.2 Structure de la page
+- Titre principal : « Règlement RPGuard »
+- Introduction expliquant l'objectif du règlement
+- Liste des articles numérotés (Article 1, Article 2, etc.)
+- Chaque article contient un titre et un contenu détaillé
+
+#### 4.10.3 Contenu des articles
+
+**Article 1 — Objet et champ d'application**
+Le présent règlement définit les conditions d'utilisation de la plateforme RPGuard, plateforme communautaire dédiée au signalement des abus de pouvoir commis par des administrateurs de serveurs de jeux vidéo de type RolePlay. Toute personne accédant à la plateforme, qu'elle soit inscrite ou non, s'engage à respecter l'intégralité des dispositions du présent règlement. L'utilisation de RPGuard implique l'acceptation pleine et entière de ces règles.
+
+**Article 2 — Définitions**
+Aux fins du présent règlement, les termes suivants sont définis comme suit :
+- Utilisateur : toute personne physique inscrite sur la plateforme RPGuard
+- Plainte : signalement d'un abus de pouvoir déposé par un utilisateur contre un administrateur de serveur de jeu RP
+- Administrateur de serveur : personne disposant de pouvoirs de modération ou d'administration sur un serveur de jeu RP
+- Abus de pouvoir : utilisation abusive, discriminatoire ou injustifiée des pouvoirs d'administration
+- Preuve : tout élément tangible (capture d'écran, enregistrement, log) attestant de la réalité des faits allégués
+- Modération : équipe administrative de RPGuard chargée de vérifier la conformité des plaintes
+
+**Article 3 — Inscription et compte utilisateur**
+L'inscription sur RPGuard est gratuite et ouverte à toute personne majeure ou disposant de l'autorisation parentale. Chaque utilisateur doit fournir un nom d'utilisateur unique, une adresse email valide et un mot de passe sécurisé. L'utilisateur s'engage à fournir des informations exactes et à maintenir la confidentialité de ses identifiants. Toute usurpation d'identité ou création de comptes multiples dans le but de manipuler les votes ou les statistiques est strictement interdite et entraînera la suspension immédiate du ou des comptes concernés.
+
+**Article 4 — Dépôt de plainte**
+Tout utilisateur inscrit peut déposer une plainte contre un administrateur de serveur de jeu RP. La plainte doit contenir les informations suivantes : nom du jeu ou serveur concerné, catégorie de jeu, nom ou pseudonyme de l'administrateur mis en cause, description factuelle et détaillée de l'abus allégué. L'utilisateur est fortement encouragé à joindre des preuves tangibles (captures d'écran, enregistrements, logs de conversation) pour étayer sa plainte. Les plaintes accompagnées de preuves solides bénéficient d'un badge de vérification augmentant leur crédibilité auprès de la communauté.
+
+**Article 5 — Véracité et bonne foi**
+L'utilisateur s'engage à déposer uniquement des plaintes véridiques, fondées sur des faits réels et vérifiables. Toute plainte mensongère, diffamatoire ou déposée dans le but de nuire à la réputation d'un administrateur ou d'un serveur sans fondement légitime constitue une violation grave du présent règlement. Les plaintes jugées fausses ou malveillantes seront rejetées et pourront entraîner la suspension ou la suppression du compte de l'auteur. RPGuard se réserve le droit de transmettre les informations aux autorités compétentes en cas de diffamation avérée.
+
+**Article 6 — Respect et civilité**
+Les utilisateurs s'engagent à adopter un comportement respectueux envers les autres membres de la communauté, les administrateurs de serveurs et l'équipe de modération de RPGuard. Sont strictement interdits : les propos injurieux, diffamatoires, racistes, sexistes, homophobes ou discriminatoires de toute nature, les menaces, le harcèlement, les appels à la violence, la divulgation d'informations personnelles sans consentement. Tout manquement à ces règles entraînera des sanctions pouvant aller de l'avertissement à la suppression définitive du compte.
+
+**Article 7 — Système de votes et commentaires**
+Les utilisateurs inscrits peuvent voter sur les plaintes déposées (upvote pour soutenir, downvote pour contester) et publier des commentaires. Chaque utilisateur ne peut voter qu'une seule fois par plainte, mais peut modifier son vote. Les votes et commentaires doivent refléter une opinion sincère et argumentée. Toute manipulation du système de votes (création de faux comptes, coordination de votes massifs, spam de commentaires) est strictement interdite. Les commentaires doivent respecter les règles de civilité énoncées à l'Article 6.
+
+**Article 8 — Signalement de fausses plaintes**
+Tout utilisateur peut signaler une plainte qu'il estime fausse ou abusive. Lorsqu'une plainte reçoit un nombre significatif de signalements (seuil fixé à 5 signalements), elle est automatiquement soumise à révision par l'équipe de modération. Les signalements abusifs ou répétés sans fondement peuvent entraîner des sanctions à l'encontre de l'auteur des signalements. Le signalement doit être utilisé de manière responsable et uniquement lorsque l'utilisateur a des raisons légitimes de douter de la véracité d'une plainte.
+
+**Article 9 — Modération et traitement des plaintes**
+L'équipe de modération de RPGuard examine les plaintes déposées et peut modifier leur statut : « En attente » (statut initial), « Validée » (plainte jugée légitime et fondée), « Rejetée » (plainte jugée fausse, non fondée ou non conforme au règlement). La modération se réserve le droit de supprimer toute plainte violant le présent règlement. Les décisions de modération sont prises de manière impartiale sur la base des preuves fournies et des règles établies. Les utilisateurs peuvent contester une décision de modération en contactant l'équipe via la page de contact.
+
+**Article 10 — Protection des données personnelles**
+RPGuard s'engage à protéger les données personnelles des utilisateurs conformément à la réglementation en vigueur. Les informations collectées (nom d'utilisateur, email, question de sécurité) sont utilisées uniquement pour le fonctionnement de la plateforme et ne sont jamais partagées avec des tiers sans consentement explicite. Les preuves téléchargées (captures d'écran, enregistrements) sont stockées de manière sécurisée. Les utilisateurs disposent d'un droit d'accès, de rectification et de suppression de leurs données personnelles.
+
+**Article 11 — Propriété intellectuelle**
+Les contenus publiés par les utilisateurs (plaintes, commentaires, preuves) restent la propriété de leurs auteurs. En publiant un contenu sur RPGuard, l'utilisateur accorde à la plateforme une licence non exclusive d'utilisation, de reproduction et de diffusion de ce contenu dans le cadre du fonctionnement de la plateforme. L'utilisateur garantit disposer de tous les droits nécessaires sur les contenus qu'il publie et s'engage à ne pas violer les droits de propriété intellectuelle de tiers.
+
+**Article 12 — Responsabilité de la plateforme**
+RPGuard agit en tant qu'hébergeur de contenus générés par les utilisateurs. La plateforme ne peut être tenue responsable des contenus publiés par les utilisateurs, sous réserve qu'elle agisse promptement pour retirer tout contenu manifestement illicite dès qu'elle en a connaissance. RPGuard ne garantit pas l'exactitude, la véracité ou la légalité des plaintes déposées. La plateforme ne peut être tenue responsable des conséquences résultant de l'utilisation des informations publiées par les utilisateurs.
+
+**Article 13 — Sanctions et suspension de compte**
+En cas de violation du présent règlement, RPGuard se réserve le droit d'appliquer les sanctions suivantes : avertissement, suppression de contenu, suspension temporaire du compte, suppression définitive du compte. La gravité de la sanction est déterminée en fonction de la nature et de la récurrence de la violation. Les utilisateurs sanctionnés sont informés par email des motifs de la sanction. En cas de suspension ou suppression de compte, l'utilisateur perd l'accès à toutes les fonctionnalités de la plateforme.
+
+**Article 14 — Modification du règlement**
+RPGuard se réserve le droit de modifier le présent règlement à tout moment. Les utilisateurs sont informés des modifications par notification sur la plateforme et par email. La poursuite de l'utilisation de la plateforme après modification du règlement vaut acceptation des nouvelles dispositions. Il est de la responsabilité de chaque utilisateur de consulter régulièrement le règlement pour prendre connaissance des éventuelles modifications.
+
+**Article 15 — Droit applicable et juridiction compétente**
+Le présent règlement est soumis au droit français. En cas de litige relatif à l'interprétation ou à l'exécution du présent règlement, les parties s'efforceront de trouver une solution amiable. À défaut, les tribunaux français seront seuls compétents pour connaître du litige.
+
+#### 4.10.4 Affichage des articles
+- Chaque article est affiché avec son numéro, son titre et son contenu complet
+- Espacement généreux entre les articles pour faciliter la lecture
+- Typographie claire et hiérarchisée
+
+#### 4.10.5 Référencement dans la navigation
+- Lien « Règlement » dans le menu principal de navigation
+- Lien « Règlement de la plateforme » dans le footer
+
+### 4.11 Page contact/signalement
+
+#### 4.11.1 Formulaire de contact
 - Champs : nom, email, sujet, message
 - Envoi du message via Edge Function
 - Enregistrement dans la base de données pour suivi
 
-#### 4.10.2 Signalement de problème technique
+#### 4.11.2 Signalement de problème technique
 - Formulaire dédié pour signaler un bug ou problème technique
 - Champs : description du problème, capture d'écran (optionnel)
 - Enregistrement via Supabase Database
 
-### 4.11 Panel administrateur
+### 4.12 Panel administrateur
 
-#### 4.11.1 Accès
+#### 4.12.1 Accès
 - Accessible uniquement aux utilisateurs avec rôle administrateur
 - Vérification du rôle via Supabase RLS
 
-#### 4.11.2 Gestion des plaintes
+#### 4.12.2 Gestion des plaintes
 - Liste de toutes les plaintes avec filtres avancés (statut, date, nombre de signalements)
-- Actions possibles : changer le statut (En attente, Validée, Rejetée), supprimer une plainte
+- Actions possibles : changer le statut (En attente, Validée, Rejetée), supprimer une plainte, citer un article du règlement
 - Afficher les signalements associés à chaque plainte
 - Modification du statut via Edge Function
+- Possibilité d'ajouter une référence à un article du règlement lors du traitement (ex: « Article 5 — Véracité et bonne foi »)
 
-#### 4.11.3 Gestion des utilisateurs
+#### 4.12.3 Gestion des utilisateurs
 - Liste de tous les utilisateurs avec informations : nom d'utilisateur, email, date d'inscription, nombre de plaintes déposées
 - Actions possibles : suspendre un utilisateur, supprimer un utilisateur
 - Gestion via Supabase Database et Auth
 
-#### 4.11.4 Statistiques
+#### 4.12.4 Statistiques
 - Tableau de bord avec statistiques globales : nombre total de plaintes, nombre de plaintes par statut, nombre d'utilisateurs actifs, nombre de votes, nombre de commentaires
 - Graphiques visuels pour les tendances (plaintes par jour, par catégorie, etc.)
 - Données calculées via Edge Functions et affichées en temps réel
 
-### 4.12 Catégories de jeux
+### 4.13 Catégories de jeux
 
-#### 4.12.1 Page de catégorie
+#### 4.13.1 Page de catégorie
 - Afficher les plaintes filtrées par catégorie sélectionnée (GTA RP, ONESTATE RP, Autres jeux RP, Autres jeux)
 - Même affichage et fonctionnalités que la liste des plaintes
 
@@ -382,6 +466,7 @@ RPGuard est une plateforme communautaire permettant aux joueurs de jeux vidéo d
 - description (texte)
 - status (enum : En attente, Validée, Rejetée)
 - has_strong_evidence (booléen, pour badge de vérification)
+- cited_article (texte, nullable, pour référence à un article du règlement)
 - created_at (timestamp)
 - updated_at (timestamp)
 
@@ -577,6 +662,12 @@ RPGuard est une plateforme communautaire permettant aux joueurs de jeux vidéo d
 - Les conversations sont triées par date du dernier message
 - Les messages non lus sont indiqués visuellement
 
+### 6.13 Règlement de la plateforme
+- Le règlement est accessible publiquement à tous les utilisateurs
+- Le règlement contient 15 articles détaillés couvrant tous les aspects de l'utilisation de la plateforme
+- Les administrateurs peuvent citer des articles du règlement lors du traitement des plaintes
+- La référence à un article est enregistrée dans le champ cited_article de la table plaintes
+
 ## 7. Cas exceptionnels et limites
 
 | Situation | Comportement attendu |
@@ -612,13 +703,14 @@ RPGuard est une plateforme communautaire permettant aux joueurs de jeux vidéo d
 6. Un autre utilisateur consulte le détail de la plainte, vote (upvote) et ajoute un commentaire
 7. L'auteur de la plainte reçoit une notification en temps réel
 8. L'auteur de la plainte accède à son tableau de bord et visualise sa plainte avec le vote et le commentaire reçus
-9. Un administrateur accède au panel admin, change le statut de la plainte en « Validée »
+9. Un administrateur accède au panel admin, change le statut de la plainte en « Validée » et cite l'Article 4 du règlement
 10. L'utilisateur consulte la page scores serveurs et voit le score du serveur concerné mis à jour en temps réel
 11. L'utilisateur accède à la messagerie et recherche un autre utilisateur
 12. L'utilisateur démarre une conversation avec l'utilisateur trouvé
 13. L'utilisateur envoie un message texte avec emoji
 14. L'utilisateur enregistre et envoie un message vocal
 15. L'autre utilisateur reçoit les messages en temps réel et répond
+16. L'utilisateur consulte la page Règlement RPGuard et lit les 15 articles
 
 ## 9. Fonctionnalités non incluses dans cette version
 
@@ -655,3 +747,6 @@ RPGuard est une plateforme communautaire permettant aux joueurs de jeux vidéo d
 - Suppression ou modification de messages envoyés
 - Recherche dans l'historique des messages
 - Archivage de conversations
+- Modification du règlement par les administrateurs via interface
+- Versioning du règlement
+- Notification automatique des modifications du règlement
