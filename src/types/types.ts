@@ -74,6 +74,8 @@ export interface Plainte {
   upvotes?: number;
   downvotes?: number;
   comment_count?: number;
+  cited_article?: string | null;
+  admin_note?: string | null;
 }
 
 export interface Accuse {

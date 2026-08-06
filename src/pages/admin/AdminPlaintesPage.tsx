@@ -3,10 +3,13 @@ import { Link, useSearchParams } from 'react-router-dom';
 import {
   Search, ChevronDown, ChevronUp, Trash2,
   CheckCircle, XCircle, Flame, Clock, RefreshCw,
-  StickyNote, ExternalLink, AlertCircle,
+  StickyNote, ExternalLink, AlertCircle, BookOpen, X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -14,6 +17,25 @@ import {
 import { toast } from 'sonner';
 import { fetchAdminPlaintes, adminUpdatePlainte, deletePlainte } from '@/lib/api';
 import type { PlainteStatus } from '@/types/types';
+
+// ── 15 articles du règlement RPGuard ─────────────────────────────────────────
+const ARTICLES_REGLEMENT = [
+  { value: 'Article 01 — Objet et champ d\'application',         label: 'Art. 01 — Objet et champ d\'application' },
+  { value: 'Article 02 — Définitions officielles',               label: 'Art. 02 — Définitions officielles' },
+  { value: 'Article 03 — Inscription et identité numérique',     label: 'Art. 03 — Inscription et identité numérique' },
+  { value: 'Article 04 — Dépôt d\'un dossier',                   label: 'Art. 04 — Dépôt d\'un dossier' },
+  { value: 'Article 05 — Véracité et bonne foi',                 label: 'Art. 05 — Véracité et bonne foi' },
+  { value: 'Article 06 — Respect et civilité',                   label: 'Art. 06 — Respect et civilité' },
+  { value: 'Article 07 — Preuves — authenticité et formats',     label: 'Art. 07 — Preuves — authenticité et formats' },
+  { value: 'Article 08 — Système de votes',                      label: 'Art. 08 — Système de votes' },
+  { value: 'Article 09 — Signalement de dossiers abusifs',       label: 'Art. 09 — Signalement de dossiers abusifs' },
+  { value: 'Article 10 — Traitement des dossiers',               label: 'Art. 10 — Traitement des dossiers' },
+  { value: 'Article 11 — Protection des données personnelles',   label: 'Art. 11 — Protection des données personnelles' },
+  { value: 'Article 12 — Propriété intellectuelle',              label: 'Art. 12 — Propriété intellectuelle' },
+  { value: 'Article 13 — Sanctions',                             label: 'Art. 13 — Sanctions' },
+  { value: 'Article 14 — Modification du règlement',             label: 'Art. 14 — Modification du règlement' },
+  { value: 'Article 15 — Droit applicable et juridiction',       label: 'Art. 15 — Droit applicable et juridiction' },
+];
 
 interface PlainteRow {
   id: string;
@@ -23,6 +45,7 @@ interface PlainteRow {
   status: PlainteStatus;
   has_strong_evidence: boolean;
   admin_note: string | null;
+  cited_article: string | null;
   created_at: string;
   profiles: { username: string | null } | null;
   categories: { name: string; color: string } | null;
@@ -66,6 +89,8 @@ export default function AdminPlaintesPage() {
   const [filter, setFilter]         = useState(params.get('status') ?? 'tous');
   const [expanded, setExpanded]     = useState<string | null>(null);
   const [editNote, setEditNote]     = useState<{ id: string; text: string } | null>(null);
+  // Sélecteur d'article du règlement — par plainte
+  const [editArticle, setEditArticle] = useState<{ id: string; value: string } | null>(null);
   // Confirmation suppression via AlertDialog (pas window.confirm)
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
@@ -99,6 +124,17 @@ export default function AdminPlaintesPage() {
       toast.success(`Statut mis à jour : ${status}`);
     } catch {
       toast.error('Erreur mise à jour statut');
+    }
+  };
+
+  const saveArticle = async (id: string, article: string | null) => {
+    try {
+      await adminUpdatePlainte(id, { cited_article: article });
+      setPlaintes(prev => prev.map(p => p.id === id ? { ...p, cited_article: article } : p));
+      setEditArticle(null);
+      toast.success(article ? `Article cité : ${article}` : 'Référence d\'article retirée');
+    } catch {
+      toast.error('Erreur sauvegarde article');
     }
   };
 
@@ -217,6 +253,11 @@ export default function AdminPlaintesPage() {
                         <StickyNote className="w-3 h-3" /> Note
                       </span>
                     )}
+                    {p.cited_article && (
+                      <span className="text-xs text-primary flex items-center gap-0.5 font-medium">
+                        <BookOpen className="w-3 h-3" /> {p.cited_article.replace('Article ', 'Art.')}
+                      </span>
+                    )}
                   </div>
                   <p className="text-xs text-muted-foreground mt-0.5">
                     Accusé : <span className="font-medium">{p.admin_name}</span>
@@ -285,6 +326,73 @@ export default function AdminPlaintesPage() {
                         </Button>
                       ))}
                     </div>
+                  </div>
+
+                  {/* Citation d'article du règlement */}
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-widest mb-2">
+                      Article du règlement cité
+                    </p>
+                    {editArticle?.id === p.id ? (
+                      <div className="flex flex-col gap-2">
+                        <Select
+                          value={editArticle.value}
+                          onValueChange={v => setEditArticle({ id: p.id, value: v })}
+                        >
+                          <SelectTrigger className="h-9 text-sm w-full md:w-80">
+                            <SelectValue placeholder="Sélectionner un article…" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {ARTICLES_REGLEMENT.map(a => (
+                              <SelectItem key={a.value} value={a.value} className="text-xs">
+                                {a.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            onClick={() => saveArticle(p.id, editArticle.value || null)}
+                            disabled={!editArticle.value}
+                          >
+                            Enregistrer
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={() => setEditArticle(null)}>
+                            Annuler
+                          </Button>
+                          {p.cited_article && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-destructive border-destructive/20 hover:bg-destructive/8 gap-1.5"
+                              onClick={() => saveArticle(p.id, null)}
+                            >
+                              <X className="w-3 h-3" /> Retirer
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <div
+                        className="flex items-center gap-2 cursor-pointer group"
+                        onClick={() => setEditArticle({ id: p.id, value: p.cited_article ?? '' })}
+                      >
+                        {p.cited_article ? (
+                          <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-primary/20 bg-primary/5 hover:bg-primary/10 transition-colors">
+                            <BookOpen className="w-3.5 h-3.5 text-primary shrink-0" />
+                            <span className="text-sm font-medium text-primary">{p.cited_article}</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-border hover:border-primary/40 transition-colors">
+                            <BookOpen className="w-3.5 h-3.5 text-muted-foreground group-hover:text-primary transition-colors" />
+                            <span className="text-sm text-muted-foreground italic">
+                              Cliquer pour citer un article du règlement…
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   {/* Actions secondaires */}

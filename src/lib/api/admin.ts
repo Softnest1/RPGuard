@@ -14,7 +14,7 @@ export async function fetchAdminPlaintes(options: {
     .from('plaintes')
     .select(`
       id, user_id, category_id, game_server_name, admin_name, description, status,
-      has_strong_evidence, created_at, updated_at, admin_note,
+      has_strong_evidence, created_at, updated_at, admin_note, cited_article,
       profiles!plaintes_user_id_fkey(username),
       categories!plaintes_category_id_fkey(name, color),
       votes(vote_type),
@@ -37,7 +37,7 @@ export async function fetchAdminPlaintes(options: {
 
 export async function adminUpdatePlainte(
   id:      string,
-  updates: { status?: string; admin_note?: string },
+  updates: { status?: string; admin_note?: string; cited_article?: string | null },
 ): Promise<void> {
   const { error } = await supabase
     .from('plaintes')

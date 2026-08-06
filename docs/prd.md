@@ -200,6 +200,7 @@ RPGuard est une plateforme communautaire permettant aux joueurs de jeux vidéo d
 
 #### 4.6.1 Informations de la plainte
 - Afficher toutes les informations : badge de catégorie coloré, nom du jeu/serveur, nom de l'administrateur, description complète, statut, badge de vérification si preuves solides, date de dépôt, auteur
+- Si un article du règlement a été cité par l'administrateur lors du traitement : afficher la référence à l'article (ex: « Article 5 — Véracité et bonne foi »)
 
 #### 4.6.2 Présentation des preuves
 - Afficher les screenshots/preuves de manière claire et organisée
@@ -417,8 +418,10 @@ Le présent règlement est soumis au droit français. En cas de litige relatif �
 - Liste de toutes les plaintes avec filtres avancés (statut, date, nombre de signalements)
 - Actions possibles : changer le statut (En attente, Validée, Rejetée), supprimer une plainte, citer un article du règlement
 - Afficher les signalements associés à chaque plainte
-- Modification du statut via Edge Function
-- Possibilité d'ajouter une référence à un article du règlement lors du traitement (ex: « Article 5 — Véracité et bonne foi »)
+- Lors du changement de statut d'une plainte : afficher une liste déroulante permettant de sélectionner un article du règlement (Article 1 à Article 15)
+- L'administrateur peut sélectionner un article dans la liste déroulante (optionnel)
+- Si un article est sélectionné : enregistrer la référence à l'article dans le champ cited_article de la table plaintes
+- Modification du statut et enregistrement de l'article cité via Edge Function
 
 #### 4.12.3 Gestion des utilisateurs
 - Liste de tous les utilisateurs avec informations : nom d'utilisateur, email, date d'inscription, nombre de plaintes déposées
@@ -572,6 +575,7 @@ Le présent règlement est soumis au droit français. En cas de litige relatif �
 - Fonction pour création de notifications lors d'événements (nouveau commentaire, changement de statut, nouveau vote)
 - Fonction pour création de conversation entre deux utilisateurs
 - Fonction pour envoi de message dans une conversation
+- Fonction pour enregistrement de l'article cité lors du changement de statut d'une plainte
 
 ### 5.6 Supabase Realtime
 - Abonnement en temps réel aux nouvelles plaintes pour mise à jour du compteur sur la page d'accueil
@@ -668,6 +672,13 @@ Le présent règlement est soumis au droit français. En cas de litige relatif �
 - Les administrateurs peuvent citer des articles du règlement lors du traitement des plaintes
 - La référence à un article est enregistrée dans le champ cited_article de la table plaintes
 
+### 6.14 Citation d'articles du règlement par les administrateurs
+- Lors du changement de statut d'une plainte dans le panel admin, l'administrateur peut sélectionner un article du règlement dans une liste déroulante
+- La liste déroulante contient les 15 articles numérotés (Article 1 à Article 15)
+- La sélection d'un article est optionnelle
+- Si un article est sélectionné, la référence est enregistrée dans le champ cited_article de la table plaintes
+- L'article cité est affiché sur la page de détail de la plainte côté utilisateur
+
 ## 7. Cas exceptionnels et limites
 
 | Situation | Comportement attendu |
@@ -692,6 +703,7 @@ Le présent règlement est soumis au droit français. En cas de litige relatif �
 | Aucun résultat de recherche d'utilisateur | Afficher un message « Aucun utilisateur trouvé » |
 | Conversation ne se met pas à jour en temps réel | Afficher les derniers messages connus, proposer de rafraîchir |
 | Échec de lecture de message vocal | Afficher un message d'erreur |
+| Administrateur ne sélectionne pas d'article lors du changement de statut | Le champ cited_article reste vide (null) |
 
 ## 8. Critères de validation
 
@@ -703,14 +715,15 @@ Le présent règlement est soumis au droit français. En cas de litige relatif �
 6. Un autre utilisateur consulte le détail de la plainte, vote (upvote) et ajoute un commentaire
 7. L'auteur de la plainte reçoit une notification en temps réel
 8. L'auteur de la plainte accède à son tableau de bord et visualise sa plainte avec le vote et le commentaire reçus
-9. Un administrateur accède au panel admin, change le statut de la plainte en « Validée » et cite l'Article 4 du règlement
-10. L'utilisateur consulte la page scores serveurs et voit le score du serveur concerné mis à jour en temps réel
-11. L'utilisateur accède à la messagerie et recherche un autre utilisateur
-12. L'utilisateur démarre une conversation avec l'utilisateur trouvé
-13. L'utilisateur envoie un message texte avec emoji
-14. L'utilisateur enregistre et envoie un message vocal
-15. L'autre utilisateur reçoit les messages en temps réel et répond
-16. L'utilisateur consulte la page Règlement RPGuard et lit les 15 articles
+9. Un administrateur accède au panel admin, change le statut de la plainte en « Validée » et sélectionne « Article 4 — Dépôt de plainte » dans la liste déroulante
+10. L'utilisateur consulte le détail de la plainte et voit l'article cité affiché
+11. L'utilisateur consulte la page scores serveurs et voit le score du serveur concerné mis à jour en temps réel
+12. L'utilisateur accède à la messagerie et recherche un autre utilisateur
+13. L'utilisateur démarre une conversation avec l'utilisateur trouvé
+14. L'utilisateur envoie un message texte avec emoji
+15. L'utilisateur enregistre et envoie un message vocal
+16. L'autre utilisateur reçoit les messages en temps réel et répond
+17. L'utilisateur consulte la page Règlement RPGuard et lit les 15 articles
 
 ## 9. Fonctionnalités non incluses dans cette version
 

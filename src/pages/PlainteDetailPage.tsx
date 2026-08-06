@@ -45,6 +45,7 @@ import {
   LogOut,
   CheckCircle2,
   Scale,
+  BookOpen,
 } from 'lucide-react';
 import CategoryBadge from '@/components/common/CategoryBadge';
 import StatusBadge from '@/components/common/StatusBadge';
@@ -426,6 +427,23 @@ export default function PlainteDetailPage() {
             )}
           </div>
 
+          {/* Article du règlement cité par la modération */}
+          {plainte.cited_article && (
+            <div className="flex items-start gap-3 mb-4 px-4 py-3 rounded-xl border border-primary/20 bg-primary/5">
+              <BookOpen className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+              <div className="min-w-0">
+                <p className="text-xs font-medium text-muted-foreground mb-0.5">
+                  Article du règlement cité par la modération
+                </p>
+                <Link
+                  to="/reglement"
+                  className="text-sm font-semibold text-primary hover:underline underline-offset-2 transition-colors"
+                >
+                  {plainte.cited_article}
+                </Link>
+              </div>
+            </div>
+          )}
           <h1 className="text-xl md:text-2xl font-semibold text-foreground mb-2 text-balance">
             {plainte.game_server_name}
           </h1>
