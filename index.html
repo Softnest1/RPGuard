@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover" />
+
+    <!-- Meta tags Anti-Cache 
+         Empêche les navigateurs mobiles (surtout Chrome sur Android et Safari sur iOS) 
+         de garder l'ancienne version HTML du site en mémoire. -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="/logo-rpguard.svg" />
+    <link rel="apple-touch-icon" href="/logo-rpguard.svg" />
+
+    <!-- SEO de base — surchargé par <PageMeta> sur chaque page -->
+    <title>RPGuard — Signaler les abus dans les serveurs RP (GTA, FiveM, RedM)</title>
+    <meta name="description" content="RPGuard est la plateforme communautaire de signalement d'abus d'administrateurs dans les serveurs GTA RP, FiveM et RedM. Déposez votre plainte, votez et protégez la communauté du jeu de rôle." />
+    <meta name="keywords" content="RPGuard, GTA RP, FiveM, RedM, signalement abus, serveurs RP, communauté jeu de rôle" />
+    <meta name="author" content="RPGuard" />
+    <meta name="robots" content="index, follow" />
+
+    <!-- Open Graph -->
+    <meta property="og:type"        content="website" />
+    <meta property="og:site_name"   content="RPGuard" />
+    <meta property="og:title"       content="RPGuard — Signaler les abus dans les serveurs RP" />
+    <meta property="og:description" content="La plateforme communautaire pour signaler et combattre les abus d'administrateurs dans les serveurs GTA RP, FiveM et RedM." />
+    <meta property="og:url"         content="https://rpguard.fr" />
+    <meta property="og:image"       content="/favicon.png" />
+    <meta property="og:locale"      content="fr_FR" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card"        content="summary_large_image" />
+    <meta name="twitter:title"       content="RPGuard — Signaler les abus dans les serveurs RP" />
+    <meta name="twitter:description" content="Déposez vos plaintes, votez et protégez la communauté RP contre les abus d'administrateurs." />
+    <meta name="twitter:image"       content="/favicon.png" />
+
+    <!-- Thème navigateur mobile -->
+    <meta name="theme-color" content="#0f172a" />
+
+    <!-- Préchargement police système — pas de flash FOUT -->
+      <style>
+      html { font-family: ui-sans-serif, system-ui, sans-serif; }
+      /* Fallback for older browsers that don't support dvh */
+      #root { min-height: 100vh; display: flex; flex-direction: column; }
+      @supports (min-height: 100dvh) {
+        #root { min-height: 100dvh; }
+      }
+      html, body {
+        width: 100%;
+        -webkit-overflow-scrolling: touch;
+      }
+      body { 
+        -webkit-font-smoothing: antialiased; 
+        -moz-osx-font-smoothing: grayscale; 
+        -webkit-tap-highlight-color: transparent; 
+        background-color: #0f172a;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

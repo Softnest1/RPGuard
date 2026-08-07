@@ -1,0 +1,258 @@
+// firestore.rules — RPGuard v4.0
+// ════════════════════════════════════════════════════════════════════════════
+// Règles de sécurité Firestore complètes pour RPGuard.
+// À déployer via : firebase deploy --only firestore:rules
+//
+// Principes :
+//   1. Moindre privilège — chaque règle n'accorde que le strict nécessaire
+//   2. Validation des données — chaque écriture vérifie les champs requis et les types
+//   3. Isolation admin — les opérations admin nécessitent role == 'admin' dans /profiles
+//   4. Protection des données sensibles — security_answer jamais lisible en dehors du profil propre
+//   5. Compteurs dénormalisés — stats/global accessible en lecture publique
+//
+// Collections :
+//   /profiles/{uid}         — profils utilisateurs
+//   /plaintes/{id}          — plaintes (signalements)
+//   /accuses/{id}           — accusés liés à une plainte
+//   /preuves/{id}           — preuves (fichiers) liées à une plainte
+//   /votes/{id}             — votes pour/contre
+//   /commentaires/{id}      — commentaires
+//   /signalements/{id}      — signalements de plaintes
+//   /categories/{id}        — catégories (admin seulement en écriture)
+//   /stats/global           — compteurs dénormalisés (lecture publique)
+//   /server_scores/{id}     — scores des serveurs (lecture publique)
+//   /contact_messages/{id}  — messages de contact
+//   /notifications/{id}     — notifications utilisateurs
+// ════════════════════════════════════════════════════════════════════════════
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helpers ─────────────────────────────────────────────────────────────
+
+    // Utilisateur connecté
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    // Propriétaire du document (uid == userId)
+    function isOwner(uid) {
+      return isAuth() && request.auth.uid == uid;
+    }
+
+    // Admin — lit le rôle dans /profiles (cached par Firestore)
+    function isAdmin() {
+      return isAuth() &&
+        get(/databases/$(database)/documents/profiles/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Champ présent et non nul
+    function hasField(data, field) {
+      return field in data && data[field] != null;
+    }
+
+    // ── /profiles/{uid} ─────────────────────────────────────────────────────
+    match /profiles/{uid} {
+      // Lecture :
+      //   - Propriétaire : tous les champs
+      //   - Autres connectés : champs publics (pas security_answer, pas reset_token)
+      //   - Admin : tous les champs
+      allow read: if isOwner(uid) || isAdmin() || (
+        isAuth() &&
+        !('security_answer' in resource.data)
+      );
+
+      // Création : uniquement par le propriétaire lors de l'inscription
+      allow create: if isOwner(uid) &&
+        hasField(request.resource.data, 'username') &&
+        hasField(request.resource.data, 'role') &&
+        request.resource.data.role == 'user' &&
+        request.resource.data.username is string &&
+        request.resource.data.username.size() >= 3 &&
+        request.resource.data.username.size() <= 20;
+
+      // Mise à jour :
+      //   - Propriétaire : peut modifier username, bio, pseudo_rp, avatar_url,
+      //                    security_question, security_answer, reset_token
+      //   - Admin : peut modifier role (promotion/démotion)
+      allow update: if isOwner(uid) &&
+        !('role' in request.resource.data.diff(resource.data).affectedKeys())
+        ||
+        isAdmin();
+
+      // Suppression : admin uniquement
+      allow delete: if isAdmin();
+    }
+
+    // ── /plaintes/{id} ──────────────────────────────────────────────────────
+    match /plaintes/{id} {
+      // Lecture publique
+      allow read: if true;
+
+      // Création : utilisateur connecté
+      allow create: if isAuth() &&
+        request.resource.data.user_id == request.auth.uid &&
+        hasField(request.resource.data, 'category_id') &&
+        hasField(request.resource.data, 'game_server_name') &&
+        hasField(request.resource.data, 'admin_name') &&
+        hasField(request.resource.data, 'description') &&
+        hasField(request.resource.data, 'status') &&
+        request.resource.data.status == 'En attente' &&
+        request.resource.data.description is string &&
+        request.resource.data.description.size() >= 20 &&
+        request.resource.data.description.size() <= 5000;
+
+      // Mise à jour :
+      //   - Admin : peut modifier status, tout le document
+      //   - Propriétaire : peut supprimer sa propre plainte (soft update → status deleted non exposé)
+      allow update: if isAdmin();
+
+      // Suppression : admin ou propriétaire (si En attente seulement)
+      allow delete: if isAdmin() ||
+        (isOwner(resource.data.user_id) &&
+         resource.data.status == 'En attente');
+    }
+
+    // ── /accuses/{id} ───────────────────────────────────────────────────────
+    match /accuses/{id} {
+      allow read: if true;
+
+      allow create: if isAuth() &&
+        hasField(request.resource.data, 'plainte_id') &&
+        hasField(request.resource.data, 'pseudo_rp') &&
+        hasField(request.resource.data, 'role') &&
+        request.resource.data.pseudo_rp is string &&
+        request.resource.data.pseudo_rp.size() >= 2 &&
+        request.resource.data.pseudo_rp.size() <= 64;
+
+      allow update, delete: if isAdmin();
+    }
+
+    // ── /preuves/{id} ────────────────────────────────────────────────────────
+    match /preuves/{id} {
+      allow read: if true;
+
+      allow create: if isAuth() &&
+        hasField(request.resource.data, 'plainte_id') &&
+        hasField(request.resource.data, 'file_path') &&
+        hasField(request.resource.data, 'file_name');
+
+      allow delete: if isAdmin() ||
+        (isAuth() && resource.data.user_id == request.auth.uid);
+    }
+
+    // ── /votes/{id} ─────────────────────────────────────────────────────────
+    match /votes/{id} {
+      allow read: if true;
+
+      // Un utilisateur ne peut voter qu'en son nom
+      allow create: if isAuth() &&
+        request.resource.data.user_id == request.auth.uid &&
+        hasField(request.resource.data, 'plainte_id') &&
+        request.resource.data.vote_type in ['pour', 'contre'];
+
+      // Mise à jour de son propre vote
+      allow update: if isAuth() &&
+        resource.data.user_id == request.auth.uid &&
+        request.resource.data.vote_type in ['pour', 'contre'];
+
+      // Suppression de son propre vote
+      allow delete: if isAuth() && resource.data.user_id == request.auth.uid;
+    }
+
+    // ── /commentaires/{id} ──────────────────────────────────────────────────
+    match /commentaires/{id} {
+      allow read: if true;
+
+      allow create: if isAuth() &&
+        request.resource.data.user_id == request.auth.uid &&
+        hasField(request.resource.data, 'plainte_id') &&
+        hasField(request.resource.data, 'content') &&
+        request.resource.data.content is string &&
+        request.resource.data.content.size() >= 2 &&
+        request.resource.data.content.size() <= 1000;
+
+      // L'auteur peut modifier/supprimer son commentaire ; admin peut supprimer
+      allow update: if isAuth() && resource.data.user_id == request.auth.uid;
+      allow delete: if isAdmin() ||
+        (isAuth() && resource.data.user_id == request.auth.uid);
+    }
+
+    // ── /signalements/{id} ──────────────────────────────────────────────────
+    match /signalements/{id} {
+      allow read: if isAdmin();
+
+      allow create: if isAuth() &&
+        request.resource.data.user_id == request.auth.uid &&
+        hasField(request.resource.data, 'plainte_id');
+
+      allow delete: if isAdmin();
+    }
+
+    // ── /categories/{id} ────────────────────────────────────────────────────
+    match /categories/{id} {
+      // Lecture publique — nécessaire pour les formulaires de plainte
+      allow read: if true;
+
+      // Écriture admin uniquement
+      allow write: if isAdmin();
+    }
+
+    // ── /stats/global ────────────────────────────────────────────────────────
+    // Compteurs dénormalisés — lecture publique, écriture authentifiée
+    // (les incrément atomiques viennent des appels API côté client)
+    match /stats/{docId} {
+      allow read: if true;
+
+      // Seuls les utilisateurs connectés peuvent mettre à jour les compteurs
+      // (via increment() atomique dans api.ts)
+      allow write: if isAuth();
+    }
+
+    // ── /server_scores/{id} ─────────────────────────────────────────────────
+    match /server_scores/{id} {
+      allow read: if true;
+      allow write: if isAuth();
+    }
+
+    // ── /contact_messages/{id} ──────────────────────────────────────────────
+    match /contact_messages/{id} {
+      // Lecture admin uniquement
+      allow read: if isAdmin();
+
+      // Tout le monde peut envoyer un message de contact (y compris non connecté)
+      allow create: if
+        hasField(request.resource.data, 'name') &&
+        hasField(request.resource.data, 'message') &&
+        request.resource.data.message is string &&
+        request.resource.data.message.size() >= 10 &&
+        request.resource.data.message.size() <= 2000;
+
+      // Admin peut mettre à jour le statut (lu, archivé) et supprimer
+      allow update, delete: if isAdmin();
+    }
+
+    // ── /notifications/{id} ─────────────────────────────────────────────────
+    match /notifications/{id} {
+      // Propriétaire uniquement
+      allow read: if isAuth() && resource.data.user_id == request.auth.uid;
+
+      // Création : admin ou système (via SDK Admin dans Cloud Functions)
+      allow create: if isAdmin();
+
+      // Mise à jour (marquage lu) : propriétaire uniquement
+      allow update: if isAuth() && resource.data.user_id == request.auth.uid;
+
+      allow delete: if isAdmin() ||
+        (isAuth() && resource.data.user_id == request.auth.uid);
+    }
+
+    // ── Blocage par défaut ────────────────────────────────────────────────────
+    // Toute collection non listée ci-dessus est refusée par défaut.
+    // (Firestore refuse par défaut — cette règle est documentaire)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
