@@ -217,7 +217,9 @@ export default function Header() {
           2560–3839 : QHD/4K cinéma
           3840+     : 4K TV/automobile — max-w illimité, tailles XXL
           ══════════════════════════════════════════════════════════════════ */}
-      <header className="sticky top-0 z-50 w-full bg-background/95 backdrop-blur-xl">
+      {/* pageshow: force un repaint quand le navigateur restaure depuis le bfcache (retour arrière) */}
+      <header className="sticky top-0 z-50 w-full bg-background/95 backdrop-blur-md"
+        style={{ willChange: 'transform', transform: 'translateZ(0)' }}>
 
         {/* Ligne signature rouge */}
         <div

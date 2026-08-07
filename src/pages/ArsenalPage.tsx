@@ -270,7 +270,7 @@ export default function ArsenalPage() {
       </div>
 
       {/* ── Barre d'ancres sticky ─────────────────────────────────────────── */}
-      <div className="sticky top-16 md:top-20 z-40 bg-background/90 backdrop-blur-md border-b border-border">
+      <div className="sticky top-16 md:top-20 z-40 bg-background/95 backdrop-blur-sm border-b border-border">
         <div className="max-w-3xl mx-auto px-4 md:px-8">
           <div className="flex items-center gap-1 overflow-x-auto scrollbar-none py-2">
             {ANCHORS.map(({ id, label }) => (

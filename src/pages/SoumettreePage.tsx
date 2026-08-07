@@ -1148,7 +1148,7 @@ export default function SoumettreePage() {
       </div>
 
       {/* ── Navigation (Sticky sur mobile) ── */}
-      <div className="flex items-center justify-between gap-3 sticky bottom-0 bg-background/80 backdrop-blur-md p-4 border-t border-border -mx-4 md:static md:bg-transparent md:backdrop-blur-none md:p-0 md:border-t-0 md:mx-0 z-40 pb-safe">
+      <div className="flex items-center justify-between gap-3 sticky bottom-0 bg-background/95 backdrop-blur-sm p-4 border-t border-border -mx-4 md:static md:bg-transparent md:backdrop-blur-none md:p-0 md:border-t-0 md:mx-0 z-40 pb-safe">
         <Button
           variant="outline"
           onClick={() => setStep((s) => s - 1)}

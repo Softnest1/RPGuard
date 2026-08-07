@@ -169,7 +169,7 @@ export default function ActualitesPage() {
       </section>
 
       {/* ── Filtres sticky ──────────────────────────────────────────────── */}
-      <div className="sticky top-0 z-20 bg-background/95 backdrop-blur border-b border-border">
+      <div className="sticky top-0 z-20 bg-background/98 border-b border-border">
         <PageContainer width="content">
           <div className="py-3 flex items-center gap-2 overflow-x-auto scrollbar-none">
             {FILTERS.map(({ key, label }) => (

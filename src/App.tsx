@@ -1,4 +1,4 @@
-import React, { Suspense } from 'react';
+import React, { Suspense, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import IntersectObserver from '@/components/common/IntersectObserver';
 import ScrollToTop from '@/components/common/ScrollToTop';
@@ -62,6 +62,23 @@ const LayoutWrapper: React.FC = () => {
 };
 
 const App: React.FC = () => {
+  // Fix flou bfcache : quand le navigateur restaure la page depuis le cache
+  // (retour arrière / retour sur l'onglet), forcer un repaint GPU immédiat
+  // pour éviter que les filtres backdrop-blur restent figés en état flou.
+  useEffect(() => {
+    const handlePageShow = (e: PageTransitionEvent) => {
+      if (e.persisted) {
+        // Page restaurée depuis le bfcache — forcer un repaint
+        document.body.style.display = 'none';
+        // eslint-disable-next-line @typescript-eslint/no-unused-expressions
+        document.body.offsetHeight; // force reflow
+        document.body.style.display = '';
+      }
+    };
+    window.addEventListener('pageshow', handlePageShow);
+    return () => window.removeEventListener('pageshow', handlePageShow);
+  }, []);
+
   return (
     <Router>
       <AuthProvider>
