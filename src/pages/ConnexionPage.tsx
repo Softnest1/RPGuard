@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,17 +9,14 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import PageMeta from '@/components/common/PageMeta';
-
-// Statistiques affichées dans le panneau gauche
-const LOGIN_STATS = [
-  { icon: Users,  val: '2 800+', lbl: 'Membres inscrits'   },
-  { icon: Swords, val: '1 400+', lbl: 'Plaintes déposées'  },
-  { icon: Zap,    val: '100 %',  lbl: 'Gratuit & anonyme'  },
-];
+import { fetchStatsQuick } from '@/lib/api';
 
 export default function ConnexionPage() {
   const { signInWithUsername } = useAuth();
-  const navigate = useNavigate();
+  const navigate  = useNavigate();
+  const location  = useLocation();
+  // Récupère l'URL d'origine passée par RequireAuth (state.from), défaut : tableau de bord
+  const from = (location.state as { from?: string } | null)?.from ?? '/tableau-de-bord';
 
   const [username,     setUsername]     = useState('');
   const [password,     setPassword]     = useState('');
@@ -27,6 +24,12 @@ export default function ConnexionPage() {
   const [loading,      setLoading]      = useState(false);
   const [errorMsg,     setErrorMsg]     = useState('');
   const [attempts,     setAttempts]     = useState(0);
+
+  // Stats réelles depuis Supabase
+  const [liveStats, setLiveStats] = useState<{ users: number; total: number } | null>(null);
+  useEffect(() => {
+    fetchStatsQuick().then((s) => setLiveStats({ users: s.users, total: s.total })).catch(() => {});
+  }, []);
 
   const usernameRef = useRef<HTMLInputElement>(null);
 
@@ -66,7 +69,8 @@ export default function ConnexionPage() {
       }
     } else {
       toast.success(`Bon retour, ${username.trim()} ! 👋`, { id: toastId });
-      navigate('/');
+      // Retour à la page demandée (ou tableau de bord par défaut)
+      navigate(from, { replace: true });
     }
   };
 
@@ -108,9 +112,13 @@ export default function ConnexionPage() {
               Bon retour parmi les gardiens de la communauté RP.
             </h2>
 
-            {/* Stats */}
+            {/* Stats en temps réel */}
             <div className="flex flex-col gap-5">
-              {LOGIN_STATS.map(({ icon: Icon, val, lbl }) => (
+              {[
+                { icon: Users,  val: liveStats ? `${liveStats.users}` : '—', lbl: 'Membres inscrits'  },
+                { icon: Swords, val: liveStats ? `${liveStats.total}` : '—', lbl: 'Plaintes déposées' },
+                { icon: Zap,    val: '100 %',                                 lbl: 'Gratuit & anonyme' },
+              ].map(({ icon: Icon, val, lbl }) => (
                 <div key={lbl} className="flex items-center gap-3">
                   <Icon className="w-3.5 h-3.5 text-white/30 shrink-0" />
                   <span className="text-sm font-semibold tabular-nums w-14 shrink-0 text-white/75">{val}</span>

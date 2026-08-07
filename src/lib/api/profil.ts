@@ -27,8 +27,8 @@ export async function updateProfile(
   userId:  string,
   updates: {
     username?:          string;
-    pseudo_rp?:         string;
-    bio?:               string;
+    pseudo_rp?:         string | null;
+    bio?:               string | null;
     security_question?: string;
     security_answer?:   string;
     avatar_url?:        string | null;
@@ -36,8 +36,8 @@ export async function updateProfile(
 ): Promise<void> {
   const payload: Record<string, string | null> = {};
   if (updates.username          !== undefined) payload.username          = updates.username ?? null;
-  if (updates.pseudo_rp         !== undefined) payload.pseudo_rp         = updates.pseudo_rp || null;
-  if (updates.bio               !== undefined) payload.bio               = updates.bio || null;
+  if (updates.pseudo_rp         !== undefined) payload.pseudo_rp         = updates.pseudo_rp ?? null;
+  if (updates.bio               !== undefined) payload.bio               = updates.bio ?? null;
   if (updates.security_question !== undefined) payload.security_question = updates.security_question || null;
   if (updates.avatar_url        !== undefined) payload.avatar_url        = updates.avatar_url ?? null;
   if (updates.security_answer   !== undefined) {

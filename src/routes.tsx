@@ -28,8 +28,11 @@ const AdminMessagesPage    = lazy(() => import('./pages/admin/AdminMessagesPage'
 const AdminMembresPage     = lazy(() => import('./pages/admin/AdminMembresPage'));
 const AdminNewsPage        = lazy(() => import('./pages/admin/AdminNewsPage'));
 const AdminDiagnosticPage  = lazy(() => import('./pages/admin/AdminDiagnosticPage'));
+const MesDossiersPage      = lazy(() => import('./pages/MesDossiersPage'));
 const LabelConfiancePage   = lazy(() => import('./pages/LabelConfiancePage'));
 const StatistiquesPage     = lazy(() => import('./pages/StatistiquesPage'));
+const ServeurDetailPage    = lazy(() => import('./pages/ServeurDetailPage'));
+const ResistancePage       = lazy(() => import('./pages/ResistancePage'));
 
 export interface RouteConfig {
   name: string;
@@ -56,9 +59,12 @@ export const routes: RouteConfig[] = [
   { name: 'Modération',          path: '/moderation',          element: <ModerationPage />,       public: true },
   { name: 'Contact',             path: '/contact',             element: <ContactPage />,          public: true },
   { name: 'Guide stratégique',   path: '/guide',               element: <GuidePage />,            public: true },
-  { name: 'Bouclier joueur',     path: '/arsenal',             element: <ArsenalPage />,          public: true },
+  { name: 'Bouclier Joueur',     path: '/arsenal',             element: <ArsenalPage />,          public: true },
   { name: 'Actualités',          path: '/actualites',          element: <ActualitesPage />,       public: true },
   { name: 'Classement serveurs', path: '/serveurs',            element: <ServeursPage />,         public: true },
+  { name: 'Fiche serveur',       path: '/serveurs/:slug',       element: <ServeurDetailPage />,    public: true },
+  { name: 'Guide résistance',    path: '/resistance',           element: <ResistancePage />,       public: true },
+  { name: 'Mes dossiers PDF',    path: '/mes-dossiers',        element: <MesDossiersPage />,      public: false },
   { name: 'Label de Confiance',  path: '/label-confiance',     element: <LabelConfiancePage />,   public: true },
   { name: 'Statistiques RP',     path: '/statistiques',        element: <StatistiquesPage />,     public: true },
 ];

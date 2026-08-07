@@ -1,14 +1,15 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Shield, ArrowLeft, AlertTriangle, Star, Swords, ArrowRight,
   FileText, UserCheck, ClipboardList, Camera, Scale,
   MessageSquare, Flag, Settings, Lock, BookOpen,
   BadgeCheck, Ban, RefreshCw, Gavel, Globe,
-  ChevronDown, ChevronUp,
+  ChevronDown, ChevronUp, TrendingUp,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import PageMeta from '@/components/common/PageMeta';
+import { supabase } from '@/db/supabase';
 
 // ── Données des 15 articles ────────────────────────────────────────────────────
 
@@ -30,7 +31,7 @@ const ARTICLES: Article[] = [
     title: 'Objet et champ d\'application',
     subtitle: 'Ce que RPGuard est, et à qui il s\'adresse',
     paragraphs: [
-      'RPGuard est une plateforme communautaire indépendante dédiée à la transparence et à la protection des joueurs de jeux vidéo de type RolePlay (GTA RP, ONESTATE RP, et tout autre jeu RP). Elle permet à tout joueur victime d\'un abus de pouvoir commis par un administrateur de serveur de déposer un signalement public, documenté et soumis au vote de la communauté.',
+      'RPGuard est une plateforme communautaire indépendante dédiée à la transparence et à la protection des joueurs de jeux vidéo de type RolePlay (GTA RP / FiveM, GTA VI RP, ONESTATE RP, RedM / Red Dead RP, et tout autre jeu RP). Elle permet à tout joueur victime d\'un abus de pouvoir commis par un administrateur de serveur de déposer un signalement public, documenté et soumis au vote de la communauté.',
       'Le présent règlement s\'applique à toute personne qui accède à RPGuard, qu\'elle soit inscrite ou simple visiteur. En naviguant sur la plateforme, chaque utilisateur reconnaît avoir pris connaissance de l\'ensemble des dispositions ci-dessous et s\'engage à les respecter sans réserve.',
       'RPGuard se positionne comme un outil de transparence, non comme une juridiction. Aucune décision prise sur la plateforme ne vaut jugement légal. Les informations publiées reflètent les déclarations des utilisateurs, soumises au contrôle communautaire et à la modération interne.',
     ],
@@ -74,7 +75,7 @@ const ARTICLES: Article[] = [
     title: 'Dépôt d\'un dossier — conditions et exigences',
     subtitle: 'Comment soumettre un signalement valide et efficace',
     paragraphs: [
-      'Pour être recevable, un dossier doit impérativement contenir : le nom exact du serveur ou jeu concerné, la catégorie de jeu (GTA RP, ONESTATE RP, autre), le pseudonyme en jeu de l\'administrateur mis en cause, et une description factuelle de l\'incident, rédigée à la première personne, sans injure ni spéculation.',
+      'Pour être recevable, un dossier doit impérativement contenir : le nom exact du serveur ou jeu concerné, le type de jeu RP (FiveM / GTA RP, GTA VI RP, ONESTATE RP, RedM, ou autre), le pseudonyme en jeu de l\'administrateur mis en cause, et une description factuelle de l\'incident, rédigée à la première personne, sans injure ni spéculation.',
       'L\'utilisateur est fortement encouragé à joindre des preuves lors du dépôt. Un dossier sans preuve reste publié mais ne bénéficie pas du badge de vérification et pèse moins dans le score communautaire. Les dossiers accompagnés de preuves solides (captures d\'écran, vidéos, logs) reçoivent un badge « Preuves vérifiées ».',
       'Un même utilisateur peut déposer plusieurs dossiers concernant des serveurs différents, mais ne peut pas déposer deux dossiers identiques contre le même administrateur du même serveur. Les doublons seront fusionnés ou supprimés par la modération.',
     ],
@@ -234,25 +235,70 @@ const ARTICLES: Article[] = [
   },
 ];
 
-// ── Badges couleurs par catégorie ────────────────────────────────────────────
-const TAG_STYLES: Record<string, string> = {
-  'Fondements':  'bg-primary/8 text-primary border border-primary/20',
-  'Compte':      'bg-muted text-muted-foreground border border-border',
-  'Dossiers':    'bg-muted text-muted-foreground border border-border',
-  'Éthique':     'bg-muted text-muted-foreground border border-border',
-  'Comportement':'bg-muted text-muted-foreground border border-border',
-  'Preuves':     'bg-muted text-muted-foreground border border-border',
-  'Modération':  'bg-muted text-muted-foreground border border-border',
-  'Données':     'bg-muted text-muted-foreground border border-border',
-  'Sanctions':   'bg-destructive/8 text-destructive border border-destructive/20',
-  'Évolution':   'bg-muted text-muted-foreground border border-border',
-  'Légal':       'bg-muted text-muted-foreground border border-border',
+// ── Mapping article num → valeur cited_article DB ────────────────────────────
+const ARTICLE_DB_VALUES: Record<string, string> = {
+  '01': 'Article 01 — Objet et champ d\'application',
+  '02': 'Article 02 — Définitions officielles',
+  '03': 'Article 03 — Inscription et identité numérique',
+  '04': 'Article 04 — Dépôt d\'un dossier',
+  '05': 'Article 05 — Véracité et bonne foi',
+  '06': 'Article 06 — Respect et civilité',
+  '07': 'Article 07 — Preuves — authenticité et formats',
+  '08': 'Article 08 — Système de votes',
+  '09': 'Article 09 — Signalement de dossiers abusifs',
+  '10': 'Article 10 — Traitement des dossiers',
+  '11': 'Article 11 — Protection des données personnelles',
+  '12': 'Article 12 — Propriété intellectuelle',
+  '13': 'Article 13 — Sanctions',
+  '14': 'Article 14 — Modification du règlement',
+  '15': 'Article 15 — Droit applicable et juridiction',
+};
+
+// ── 5 groupes stratégiques (10 tags → 5) ────────────────────────────────────
+// Mapping ancien tag → nouveau groupe
+const TAG_GROUP: Record<string, string> = {
+  'Fondements':   'Règles de base',
+  'Compte':       'Règles de base',
+  'Dossiers':     'Dépôt & Preuves',
+  'Preuves':      'Dépôt & Preuves',
+  'Éthique':      'Éthique & Conduite',
+  'Comportement': 'Éthique & Conduite',
+  'Modération':   'Modération',
+  'Données':      'Modération',
+  'Évolution':    'Modération',
+  'Sanctions':    'Sanctions & Légal',
+  'Légal':        'Sanctions & Légal',
+};
+
+// Les 5 groupes dans l'ordre d'affichage
+const GROUPS = ['Tous', 'Règles de base', 'Dépôt & Preuves', 'Éthique & Conduite', 'Modération', 'Sanctions & Légal'] as const;
+type Group = typeof GROUPS[number];
+
+// Couleurs distinctives par groupe — palettes sémantiques (token-safe)
+const GROUP_STYLES: Record<string, { pill: string; active: string }> = {
+  'Tous':              { pill: 'border border-border text-muted-foreground bg-background',     active: 'bg-foreground text-background border-foreground' },
+  'Règles de base':    { pill: 'border border-primary/20 text-primary bg-primary/8',           active: 'bg-primary text-primary-foreground border-primary' },
+  'Dépôt & Preuves':  { pill: 'border border-blue-200 text-blue-700 bg-blue-50 dark:border-blue-800/40 dark:text-blue-400 dark:bg-blue-950/20',  active: 'bg-blue-600 text-white border-blue-600 dark:bg-blue-500' },
+  'Éthique & Conduite':{ pill: 'border border-amber-200 text-amber-700 bg-amber-50 dark:border-amber-800/40 dark:text-amber-400 dark:bg-amber-950/20', active: 'bg-amber-500 text-white border-amber-500' },
+  'Modération':        { pill: 'border border-violet-200 text-violet-700 bg-violet-50 dark:border-violet-800/40 dark:text-violet-400 dark:bg-violet-950/20', active: 'bg-violet-600 text-white border-violet-600 dark:bg-violet-500' },
+  'Sanctions & Légal': { pill: 'border border-destructive/20 text-destructive bg-destructive/8', active: 'bg-destructive text-destructive-foreground border-destructive' },
+};
+
+// Badge inline sur chaque article (petit, couleur du groupe)
+const GROUP_BADGE: Record<string, string> = {
+  'Règles de base':     'border border-primary/20 text-primary bg-primary/8',
+  'Dépôt & Preuves':   'border border-blue-200 text-blue-700 bg-blue-50 dark:border-blue-800/40 dark:text-blue-400 dark:bg-blue-950/20',
+  'Éthique & Conduite':'border border-amber-200 text-amber-700 bg-amber-50 dark:border-amber-800/40 dark:text-amber-400 dark:bg-amber-950/20',
+  'Modération':         'border border-violet-200 text-violet-700 bg-violet-50 dark:border-violet-800/40 dark:text-violet-400 dark:bg-violet-950/20',
+  'Sanctions & Légal':  'border border-destructive/20 text-destructive bg-destructive/8',
 };
 
 // ── Composant Article (expandable) ──────────────────────────────────────────
-function ArticleRow({ article, isLast }: { article: Article; isLast: boolean }) {
+function ArticleRow({ article, citationCount, isLast }: { article: Article; citationCount: number; isLast: boolean }) {
   const [expanded, setExpanded] = useState(false);
   const Icon = article.icon;
+  const group = article.tag ? TAG_GROUP[article.tag] : undefined;
+  const badgeClass = group ? GROUP_BADGE[group] : 'bg-muted text-muted-foreground border border-border';
 
   // Rendu inline-bold pour les items avec **texte**
   function renderItem(text: string) {
@@ -269,32 +315,38 @@ function ArticleRow({ article, isLast }: { article: Article; isLast: boolean }) 
       {/* En-tête cliquable */}
       <button
         onClick={() => setExpanded((v) => !v)}
-        className="w-full flex gap-5 md:gap-6 py-7 text-left group"
+        className="w-full flex gap-4 md:gap-6 py-6 md:py-7 text-left group"
         aria-expanded={expanded}
       >
         {/* Numéro + icône */}
-        <div className="shrink-0 flex flex-col items-center gap-2 w-10">
-          <span className="text-xs font-mono text-muted-foreground/40 tabular-nums select-none">
+        <div className="shrink-0 flex flex-col items-center gap-2 w-8 md:w-10">
+          <span className="text-[10px] md:text-xs font-mono text-muted-foreground/40 tabular-nums select-none">
             {article.num}
           </span>
-          <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center group-hover:bg-primary/10 transition-colors">
-            <Icon className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
+          <div className="w-7 h-7 md:w-8 md:h-8 rounded-lg bg-muted flex items-center justify-center group-hover:bg-primary/10 transition-colors">
+            <Icon className="w-3.5 h-3.5 md:w-4 md:h-4 text-muted-foreground group-hover:text-primary transition-colors" />
           </div>
         </div>
 
-        {/* Titre + chevron */}
+        {/* Titre + groupe + compteur + chevron */}
         <div className="flex-1 min-w-0 pt-0.5">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
-              {article.tag && (
-                <span className={`inline-block text-[10px] font-medium px-2 py-0.5 rounded-full mb-2 ${TAG_STYLES[article.tag] ?? 'bg-muted text-muted-foreground'}`}>
-                  {article.tag}
+              {group && (
+                <span className={`inline-block text-[10px] font-medium px-2 py-0.5 rounded-full mb-2 ${badgeClass}`}>
+                  {group}
                 </span>
               )}
-              <h2 className="text-sm font-semibold text-foreground leading-snug">
+              <h2 className="text-sm md:text-base font-semibold text-foreground leading-snug text-balance">
                 Article {article.num} — {article.title}
               </h2>
-              <p className="text-xs text-muted-foreground mt-0.5">{article.subtitle}</p>
+              <p className="text-xs md:text-sm text-muted-foreground mt-0.5 text-pretty">{article.subtitle}</p>
+              {citationCount > 0 && (
+                <span className="inline-flex items-center gap-1 mt-2 text-[10px] font-medium text-primary bg-primary/8 border border-primary/15 px-2 py-0.5 rounded-full">
+                  <TrendingUp className="w-2.5 h-2.5" />
+                  {citationCount} dossier{citationCount > 1 ? 's' : ''} cité{citationCount > 1 ? 's' : ''}
+                </span>
+              )}
             </div>
             <div className="shrink-0 mt-1">
               {expanded
@@ -308,16 +360,16 @@ function ArticleRow({ article, isLast }: { article: Article; isLast: boolean }) 
 
       {/* Contenu déployable */}
       {expanded && (
-        <div className="pl-16 md:pl-16 pb-7 flex flex-col gap-4 opacity-0 intersect:opacity-100 transition duration-300">
+        <div className="pl-12 md:pl-16 pb-6 md:pb-8 flex flex-col gap-3 md:gap-4">
           {article.paragraphs.map((p, i) => (
-            <p key={i} className="text-sm text-muted-foreground leading-relaxed">{p}</p>
+            <p key={i} className="text-sm md:text-base text-muted-foreground leading-relaxed text-pretty">{p}</p>
           ))}
           {article.items && (
-            <ul className="flex flex-col gap-2 mt-1">
+            <ul className="flex flex-col gap-2 md:gap-2.5 mt-1">
               {article.items.map((item, i) => (
-                <li key={i} className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                <li key={i} className="flex items-start gap-2.5 text-sm md:text-base text-muted-foreground">
                   <span className="mt-2 w-1 h-1 rounded-full bg-primary/50 shrink-0" />
-                  <span>{renderItem(item)}</span>
+                  <span className="text-pretty">{renderItem(item)}</span>
                 </li>
               ))}
             </ul>
@@ -330,6 +382,31 @@ function ArticleRow({ article, isLast }: { article: Article; isLast: boolean }) 
 
 // ── Page principale ──────────────────────────────────────────────────────────
 export default function ReglementPage() {
+  const [citationCounts, setCitationCounts] = useState<Record<string, number>>({});
+  const [activeGroup, setActiveGroup] = useState<Group>('Tous');
+
+  useEffect(() => {
+    async function loadCounts() {
+      const { data } = await supabase
+        .from('plaintes')
+        .select('cited_article')
+        .not('cited_article', 'is', null);
+      if (!data) return;
+      const counts: Record<string, number> = {};
+      for (const row of data) {
+        const val = row.cited_article as string;
+        counts[val] = (counts[val] ?? 0) + 1;
+      }
+      setCitationCounts(counts);
+    }
+    loadCounts();
+  }, []);
+
+  // Filtrage par groupe stratégique
+  const visibleArticles = activeGroup === 'Tous'
+    ? ARTICLES
+    : ARTICLES.filter((a) => a.tag && TAG_GROUP[a.tag] === activeGroup);
+
   return (
     <div className="w-full">
       <PageMeta
@@ -340,7 +417,7 @@ export default function ReglementPage() {
 
       {/* ── Hero ── */}
       <div className="border-b border-border bg-card">
-        <div className="max-w-3xl mx-auto px-4 md:px-8 py-12 md:py-16">
+        <div className="w-full max-w-3xl mx-auto px-4 md:px-8 xl:px-0 py-10 md:py-14 xl:py-20">
           <Link
             to="/"
             className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-8 transition-colors"
@@ -350,8 +427,8 @@ export default function ReglementPage() {
           </Link>
 
           <div className="flex items-start gap-4 mb-5">
-            <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center shrink-0 mt-0.5">
-              <Shield className="w-5 h-5 text-primary-foreground" />
+            <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-primary flex items-center justify-center shrink-0 mt-0.5">
+              <Shield className="w-5 h-5 md:w-6 md:h-6 text-primary-foreground" />
             </div>
             <div>
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-widest mb-1">
@@ -363,20 +440,20 @@ export default function ReglementPage() {
             </div>
           </div>
 
-          <p className="text-sm text-muted-foreground leading-relaxed max-w-xl mb-6">
+          <p className="text-sm md:text-base text-muted-foreground leading-relaxed max-w-xl mb-6 text-pretty">
             RPGuard a construit son propre cadre de règles pour protéger les joueurs, garantir la crédibilité des dossiers
             et offrir une modération équitable. Ces articles font foi lors de toute décision de modération.
             Cliquez sur un article pour le déployer.
           </p>
 
           {/* Indicateurs rapides */}
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap gap-2 md:gap-3">
             {[
               { n: '15', label: 'Articles' },
-              { n: '6', label: 'Catégories' },
-              { n: '4', label: 'Niveaux de sanction' },
+              { n: '5',  label: 'Groupes' },
+              { n: '4',  label: 'Niveaux de sanction' },
             ].map(({ n, label }) => (
-              <div key={label} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border bg-background text-xs text-muted-foreground">
+              <div key={label} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border bg-background text-xs md:text-sm text-muted-foreground">
                 <span className="font-semibold text-foreground tabular-nums">{n}</span>
                 {label}
               </div>
@@ -385,39 +462,55 @@ export default function ReglementPage() {
         </div>
       </div>
 
-      {/* ── Index des catégories ── */}
+      {/* ── Filtre groupes — scroll horizontal sur petits écrans, wrap sur grands ── */}
       <div className="border-b border-border bg-muted/30">
-        <div className="max-w-3xl mx-auto px-4 md:px-8 py-4">
-          <div className="flex flex-wrap gap-2 items-center">
-            <span className="text-xs text-muted-foreground mr-1">Catégories :</span>
-            {['Fondements', 'Compte', 'Dossiers', 'Éthique', 'Comportement', 'Preuves', 'Modération', 'Données', 'Sanctions', 'Légal'].map((tag) => (
-              <span
-                key={tag}
-                className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${TAG_STYLES[tag] ?? 'bg-muted text-muted-foreground'}`}
-              >
-                {tag}
-              </span>
-            ))}
+        <div className="w-full max-w-3xl mx-auto px-4 md:px-8 xl:px-0 py-3">
+          <div className="flex gap-2 overflow-x-auto whitespace-nowrap scrollbar-none pb-0.5 items-center md:flex-wrap md:overflow-x-visible md:whitespace-normal">
+            <span className="text-xs text-muted-foreground shrink-0 mr-1">Filtrer :</span>
+            {GROUPS.map((g) => {
+              const isActive = activeGroup === g;
+              const styles = GROUP_STYLES[g];
+              return (
+                <button
+                  key={g}
+                  onClick={() => setActiveGroup(g)}
+                  className={`shrink-0 text-[11px] md:text-xs font-medium px-3 py-1.5 rounded-full border transition-all min-h-[2rem] ${
+                    isActive ? styles.active : styles.pill + ' hover:opacity-80'
+                  }`}
+                >
+                  {g}
+                  {g !== 'Tous' && (
+                    <span className="ml-1.5 opacity-60 tabular-nums">
+                      {ARTICLES.filter((a) => a.tag && TAG_GROUP[a.tag] === g).length}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </div>
         </div>
       </div>
 
-      {/* ── Articles ── */}
-      <div className="max-w-3xl mx-auto px-4 md:px-8 py-4">
-        {ARTICLES.map((article, i) => (
+      {/* ── Articles (filtrés) ── */}
+      <div className="w-full max-w-3xl mx-auto px-4 md:px-8 xl:px-0 py-4">
+        {visibleArticles.length === 0 && (
+          <p className="text-sm text-muted-foreground py-12 text-center">Aucun article dans ce groupe.</p>
+        )}
+        {visibleArticles.map((article, i) => (
           <ArticleRow
             key={article.num}
             article={article}
-            isLast={i === ARTICLES.length - 1}
+            citationCount={citationCounts[ARTICLE_DB_VALUES[article.num]] ?? 0}
+            isLast={i === visibleArticles.length - 1}
           />
         ))}
       </div>
 
       {/* ── Pied de page légal ── */}
-      <div className="max-w-3xl mx-auto px-4 md:px-8 pb-12">
+      <div className="w-full max-w-3xl mx-auto px-4 md:px-8 xl:px-0 pb-12 md:pb-16">
         <div className="flex items-start gap-3 p-4 rounded-xl border border-border bg-muted/40">
           <AlertTriangle className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
-          <p className="text-xs text-muted-foreground leading-relaxed">
+          <p className="text-xs md:text-sm text-muted-foreground leading-relaxed text-pretty">
             Dernière mise à jour : <span className="font-medium text-foreground">Juillet 2026</span>.{' '}
             Ce règlement constitue les Conditions Générales d'Utilisation (CGU) contraignantes de la plateforme RPGuard.
             Toute décision de modération citant un article fait référence à la version en vigueur à la date de la décision.
@@ -427,10 +520,10 @@ export default function ReglementPage() {
         {/* ── Ressources stratégiques ── */}
         <div className="mt-12 pt-10 border-t border-border">
           <div className="flex items-center gap-2 mb-2">
-            <Star className="w-4 h-4 text-amber-500" />
-            <h2 className="text-base font-semibold text-foreground">Ressources pour déposer un dossier solide</h2>
+            <Star className="w-4 h-4 text-amber-500 shrink-0" />
+            <h2 className="text-base md:text-lg font-semibold text-foreground">Ressources pour déposer un dossier solide</h2>
           </div>
-          <p className="text-sm text-muted-foreground mb-6 max-w-lg">
+          <p className="text-sm text-muted-foreground mb-6 max-w-lg text-pretty">
             RPGuard met à votre disposition deux guides complets pour maximiser l'impact de chaque signalement.
           </p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -440,10 +533,10 @@ export default function ReglementPage() {
               </div>
               <div className="min-w-0 flex-1">
                 <h3 className="text-sm font-semibold text-foreground mb-1">Guide de dépôt</h3>
-                <p className="text-xs text-muted-foreground leading-relaxed mb-3">
+                <p className="text-xs text-muted-foreground leading-relaxed mb-3 text-pretty">
                   5 étapes, score de crédibilité, checklist et formulations efficaces pour un dossier à 80+/100.
                 </p>
-                <Button asChild size="sm" variant="outline" className="rounded-full h-7 text-xs px-3">
+                <Button asChild size="sm" variant="outline" className="rounded-full h-8 text-xs px-3">
                   <Link to="/guide">Lire le guide <ArrowRight className="w-3 h-3 ml-1" /></Link>
                 </Button>
               </div>
@@ -454,10 +547,10 @@ export default function ReglementPage() {
               </div>
               <div className="min-w-0 flex-1">
                 <h3 className="text-sm font-semibold text-foreground mb-1">Bouclier joueur</h3>
-                <p className="text-xs text-muted-foreground leading-relaxed mb-3">
+                <p className="text-xs text-muted-foreground leading-relaxed mb-3 text-pretty">
                   8 tactiques de manipulation décodées, 7 droits du joueur et 4 scénarios concrets pour gagner face à un admin qui résiste.
                 </p>
-                <Button asChild size="sm" variant="outline" className="rounded-full h-7 text-xs px-3">
+                <Button asChild size="sm" variant="outline" className="rounded-full h-8 text-xs px-3">
                   <Link to="/arsenal">Voir le bouclier <ArrowRight className="w-3 h-3 ml-1" /></Link>
                 </Button>
               </div>

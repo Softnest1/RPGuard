@@ -3,7 +3,7 @@ import { memo, useState, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   ThumbsUp, ThumbsDown, MessageCircle, ShieldCheck, Clock,
-  User, Calendar, Server, ChevronRight, AlertCircle,
+  User, Calendar, ChevronRight, AlertCircle,
 } from 'lucide-react';
 import type { Plainte, VoteType } from '@/types/types';
 import CategoryBadge from './CategoryBadge';
@@ -13,6 +13,8 @@ import { fr } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { submitVote, removeVote } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
+
+import GameBadge from './GameBadge';
 
 // ── Score de force du dossier ──────────────────────────────────────────────
 function cardForceScore(p: Plainte): {
@@ -137,14 +139,21 @@ const PlainteCard = memo(function PlainteCard({ plainte }: PlainteCardProps) {
       {/* ── EN-TÊTE ─────────────────────────────────────── */}
       <div className="px-5 pt-5 pb-3">
 
-        {/* Badges statut + catégorie */}
+        {/* Badges statut + catégorie + jeu */}
         <div className="flex flex-wrap items-center gap-2 mb-4">
           <StatusBadge status={plainte.status} />
           {plainte.categories && <CategoryBadge category={plainte.categories} />}
+          {plainte.game_type && <GameBadge gameType={plainte.game_type} />}
           {plainte.has_strong_evidence && (
             <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium border bg-primary/8 text-primary border-primary/15 shadow-sm">
               <ShieldCheck className="w-3.5 h-3.5" aria-hidden="true" />
               Preuves
+            </span>
+          )}
+          {plainte.is_compliant && (
+            <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium border bg-green-50 text-green-700 border-green-200 dark:bg-green-950/20 dark:text-green-400 dark:border-green-800/40">
+              <ShieldCheck className="w-3.5 h-3.5" aria-hidden="true" />
+              Conforme
             </span>
           )}
         </div>
@@ -152,16 +161,11 @@ const PlainteCard = memo(function PlainteCard({ plainte }: PlainteCardProps) {
         {/* Serveur — titre principal de la carte */}
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center shrink-0 border border-border/50">
-                <Server className="w-4 h-4 text-foreground/70" aria-hidden="true" />
-              </div>
-              <h3 className="font-bold text-base md:text-lg text-foreground truncate leading-snug group-hover:text-primary transition-colors duration-150">
-                {plainte.game_server_name}
-              </h3>
-            </div>
+            <h3 className="font-bold text-base md:text-lg text-foreground truncate leading-snug group-hover:text-primary transition-colors duration-150 mb-1.5">
+              {plainte.game_server_name}
+            </h3>
             {/* Admin mis en cause */}
-            <div className="flex items-center gap-1.5 ml-10">
+            <div className="flex items-center gap-1.5">
               <AlertCircle className="w-3.5 h-3.5 text-destructive/70 shrink-0" aria-hidden="true" />
               <p className="text-sm text-muted-foreground truncate">
                 Admin visé : <span className="font-semibold text-foreground/90">{plainte.admin_name}</span>

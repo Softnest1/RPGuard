@@ -34,3 +34,24 @@ history/*.json
 .vite_cache
 .native-wind-cache
 .vite
+
+# ── Reliques Firebase (migration terminée → Supabase) ─────────────────────
+firebase.json
+firestore.indexes.json
+firestore.rules
+.firebaserc
+
+# ── Credentials & secrets — NE JAMAIS POUSSER ─────────────────────────────
+*.pem
+*.key
+*-adminsdk-*.json
+*service-account*.json
+*firebase-admin*.json
+*.p12
+*.pfx
+.env
+.env.*
+!.env.example
+
+# ── Build & cache Vite ─────────────────────────────────────────────────────
+stats.html

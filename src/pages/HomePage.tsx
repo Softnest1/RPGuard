@@ -151,8 +151,8 @@ export default function HomePage() {
     <div className="flex flex-col w-full bg-background min-h-screen">
       <PageMeta 
         title="RPGuard — Justice Communautaire et Signalement d'Abus RP" 
-        description="RPGuard est la première plateforme indépendante pour signaler les abus d'administrateurs sur GTA RP, FiveM et RedM. Constituez votre dossier, apportez vos preuves et laissez la communauté faire le tri." 
-        keywords="GTA RP, FiveM, RedM, signalement abus, administrateurs abusifs, justice communautaire, plainte RP, serveur RP français"
+        description="RPGuard est la première plateforme indépendante pour signaler les abus d'administrateurs sur GTA RP / FiveM, GTA VI RP, ONESTATE RP et RedM. Constituez votre dossier, apportez vos preuves et laissez la communauté décider." 
+        keywords="GTA RP, FiveM, GTA VI RP, ONESTATE RP, RedM, signalement abus, administrateurs abusifs, justice communautaire, plainte RP, serveur RP français"
       />
 
       {/* ── HERO STRATÉGIQUE ────────────────────────────────────────────── */}
@@ -356,20 +356,20 @@ export default function HomePage() {
                 badge="Tendance" badgeIcon={Flame} badgeColor="destructive"
               />
               <Button asChild variant="outline" className="hidden md:flex shrink-0 rounded-full 2xl:h-12 2xl:px-6 2xl:text-base">
-                <Link to="/plaintes">Voir tous les dossiers <ArrowRight className="w-4 h-4 2xl:w-5 2xl:h-5 ml-2" /></Link>
+                <Link to="/plaintes?status=Viral">Voir tous les dossiers <ArrowRight className="w-4 h-4 2xl:w-5 2xl:h-5 ml-2" /></Link>
               </Button>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 4xl:grid-cols-5 gap-4 2xl:gap-6 4xl:gap-8">
               {viralPlaintes.map(p => <PlainteCard key={p.id} plainte={p} />)}
             </div>
             <Button asChild variant="outline" className="w-full mt-6 md:hidden rounded-full">
-              <Link to="/plaintes">Voir tous les dossiers</Link>
+              <Link to="/plaintes?status=Viral">Voir tous les dossiers viraux</Link>
             </Button>
           </PageContainer>
         </section>
       )}
 
-      {/* ── DERNIERS DOSSIERS ───────────────────────────────────────────── */}
+      {/* ── DERNIERS DOSSIERS (exclus les viraux et gagnés déjà affichés) ── */}
       <section className="py-16 md:py-24 2xl:py-32 4xl:py-48 border-b border-border">
         <PageContainer width="xl">
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-10 2xl:mb-16">
@@ -386,22 +386,30 @@ export default function HomePage() {
                 <Skeleton key={i} className="h-[280px] 2xl:h-[320px] rounded-2xl w-full" />
               ))}
             </div>
-          ) : recentPlaintes.length === 0 ? (
-            <div className="text-center py-16 px-4 border border-dashed border-border rounded-xl bg-muted/10">
-              <Shield className="w-12 h-12 text-muted-foreground mx-auto mb-4 opacity-50" />
-              <h3 className="text-lg font-bold text-foreground mb-2">Aucune plainte n'a été déposée.</h3>
-              <p className="text-muted-foreground mb-6">Le calme avant la tempête. Soyez le premier lanceur d'alerte.</p>
-              <Button asChild><Link to="/soumettre">Déposer une plainte</Link></Button>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 4xl:grid-cols-5 gap-4 2xl:gap-6 4xl:gap-8">
-              {recentPlaintes.map(p => <PlainteCard key={p.id} plainte={p} />)}
-            </div>
-          )}
+          ) : (() => {
+            // Exclure les IDs déjà affichés dans les sections Viral et Won
+            const excludeIds = new Set([
+              ...viralPlaintes.map(p => p.id),
+              ...wonPlaintes.map(p => p.id),
+            ]);
+            const uniqueRecent = recentPlaintes.filter(p => !excludeIds.has(p.id));
+            return uniqueRecent.length === 0 ? (
+              <div className="text-center py-16 px-4 border border-dashed border-border rounded-xl bg-muted/10">
+                <Shield className="w-12 h-12 text-muted-foreground mx-auto mb-4 opacity-50" />
+                <h3 className="text-lg font-bold text-foreground mb-2">Aucune plainte n'a été déposée.</h3>
+                <p className="text-muted-foreground mb-6">Le calme avant la tempête. Soyez le premier lanceur d'alerte.</p>
+                <Button asChild><Link to="/soumettre">Déposer une plainte</Link></Button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 4xl:grid-cols-5 gap-4 2xl:gap-6 4xl:gap-8">
+                {uniqueRecent.map(p => <PlainteCard key={p.id} plainte={p} />)}
+              </div>
+            );
+          })()}
         </PageContainer>
       </section>
 
-      {/* ── VICTOIRES COMMUNAUTAIRES (WON) ──────────────────────────────── */}
+      {/* ── VICTOIRES COMMUNAUTAIRES (Won — exclus des autres sections) ─── */}
       {wonPlaintes.length > 0 && (
         <section className="py-16 md:py-24 2xl:py-32 4xl:py-48 border-b border-border bg-card">
           <PageContainer width="xl">

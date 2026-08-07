@@ -8,10 +8,11 @@ import {
 } from '@/components/ui/select';
 import {
   Search, FilePlus, SlidersHorizontal, LogIn, Star, Trophy,
-  Flame, Clock, TrendingUp, X, ListFilter,
+  Flame, Clock, TrendingUp, Gamepad2,
 } from 'lucide-react';
 import PlainteCard from '@/components/common/PlainteCard';
 import { fetchPlaintes, fetchCategories } from '@/lib/api';
+import { GAMES_RP } from '@/lib/games';
 import type { Plainte, Category } from '@/types/types';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -36,45 +37,51 @@ export default function PlaintesPage() {
   const [search,     setSearch]     = useState('');
   const [categoryId, setCategoryId] = useState('all');
   const [status,     setStatus]     = useState(() => searchParams.get('status') ?? 'all');
+  const [gameType,   setGameType]   = useState(() => searchParams.get('game') ?? 'all');
   const [sortBy,     setSortBy]     = useState<'date' | 'votes'>('date');
 
   // Appliquer le filtre ?server= envoyé par ServeursPage au premier montage
   useEffect(() => {
     const serverParam = searchParams.get('server');
     if (serverParam) setSearch(serverParam);
-    // Nettoyer le paramètre de l'URL sans déclencher de navigation
     setSearchParams(prev => {
       const next = new URLSearchParams(prev);
       next.delete('server');
       return next;
     }, { replace: true });
-    // Ne s'exécute qu'au premier montage
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const hasActiveFilter = search.trim() !== '' || categoryId !== 'all' || status !== 'all';
+  const hasActiveFilter = search.trim() !== '' || categoryId !== 'all' || status !== 'all' || gameType !== 'all';
 
   // Synchroniser le statut avec l'URL quand il change
   const handleStatusChange = (val: string) => {
     setStatus(val);
-    if (val !== 'all') {
-      setSearchParams({ status: val }, { replace: true });
-    } else {
-      setSearchParams({}, { replace: true });
-    }
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      if (val !== 'all') next.set('status', val); else next.delete('status');
+      return next;
+    }, { replace: true });
+  };
+
+  // Synchroniser le filtre jeu avec l'URL
+  const handleGameTypeChange = (val: string) => {
+    setGameType(val);
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      if (val !== 'all') next.set('game', val); else next.delete('game');
+      return next;
+    }, { replace: true });
   };
 
   const load = useCallback(async (isRefresh = false) => {
-    // Éviter le clignotement des skeletons si on a déjà des plaintes (optimistic UI)
-    if (isRefresh && plaintes.length === 0) {
-      setLoading(true);
-    }
-    
+    if (isRefresh && plaintes.length === 0) setLoading(true);
     try {
       const data = await fetchPlaintes({
         search:     search.trim() || undefined,
         categoryId: categoryId !== 'all' ? categoryId : undefined,
         status:     status !== 'all' ? status : undefined,
+        gameType:   gameType !== 'all' ? gameType : undefined,
         sortBy,
       });
       setPlaintes(data);
@@ -83,7 +90,7 @@ export default function PlaintesPage() {
     } finally {
       setLoading(false);
     }
-  }, [search, categoryId, status, sortBy, plaintes.length]);
+  }, [search, categoryId, status, gameType, sortBy, plaintes.length]);
 
   useEffect(() => {
     fetchCategories().then(setCategories).catch(() => {});
@@ -98,19 +105,19 @@ export default function PlaintesPage() {
     setSearch('');
     setCategoryId('all');
     setStatus('all');
+    setGameType('all');
     setSortBy('date');
     setSearchParams({}, { replace: true });
   };
 
-  // Étiquette du statut actif pour l'état vide
   const activeStatusLabel = STATUS_TABS.find(t => t.value === status)?.label ?? 'cette catégorie';
 
   return (
     <div className="w-full max-w-6xl mx-auto px-4 md:px-8 py-8 md:py-12">
       <PageMeta
         title="Liste des Plaintes & Abus signalés — RPGuard"
-        description="Parcourez, filtrez et votez pour les plaintes et signalements d'abus d'administrateurs sur les serveurs GTA RP, FiveM et RedM. Soutenez les victimes en apportant votre voix."
-        keywords="plaintes serveurs RP, signalements abus GTA RP, liste plaintes FiveM, preuves abus RP, avis serveurs GTA, dénoncer admin"
+        description="Parcourez, filtrez et votez pour les plaintes d'abus sur GTA RP / FiveM, GTA VI RP, ONESTATE RP et RedM. Filtrez par jeu, statut ou catégorie."
+        keywords="plaintes serveurs RP, signalements abus GTA RP, liste plaintes FiveM, ONESTATE RP abus, RedM abus, preuves abus RP, dénoncer admin"
       />
       <div className="flex items-start justify-between gap-3 mb-6">
         <div className="min-w-0">
@@ -169,7 +176,7 @@ export default function PlaintesPage() {
 
       {/* ── Onglets de statut ────────────────────────────── */}
       <div
-        className="flex items-center gap-1 mb-4 overflow-x-auto pb-1 scrollbar-none"
+        className="flex items-center gap-1 mb-3 overflow-x-auto pb-1 scrollbar-none"
         role="tablist"
         aria-label="Filtrer par statut"
       >
@@ -193,6 +200,43 @@ export default function PlaintesPage() {
             </button>
           );
         })}
+      </div>
+
+      {/* ── Filtre jeu RP ─────────────────────────────────── */}
+      <div
+        className="flex items-center gap-1.5 mb-4 overflow-x-auto pb-1 scrollbar-none"
+        role="group"
+        aria-label="Filtrer par jeu RP"
+      >
+        <Gamepad2 className="w-3.5 h-3.5 text-muted-foreground shrink-0" aria-hidden="true" />
+        <button
+          onClick={() => handleGameTypeChange('all')}
+          className={[
+            'inline-flex items-center whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-medium transition-colors shrink-0 border',
+            gameType === 'all'
+              ? 'bg-foreground text-background border-foreground'
+              : 'bg-background text-muted-foreground border-border hover:text-foreground hover:border-foreground/30',
+          ].join(' ')}
+        >
+          Tous les jeux
+        </button>
+        {GAMES_RP.map((g) => (
+          <button
+            key={g.id}
+            onClick={() => handleGameTypeChange(g.id)}
+            className={[
+              'inline-flex items-center whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-medium transition-colors shrink-0 border',
+              gameType === g.id
+                ? 'bg-foreground text-background border-foreground'
+                : 'bg-background text-muted-foreground border-border hover:text-foreground hover:border-foreground/30',
+            ].join(' ')}
+          >
+            {g.label}
+            {g.status === 'émergent' && (
+              <span className="ml-1.5 text-[10px] font-semibold text-purple-500">NEW</span>
+            )}
+          </button>
+        ))}
       </div>
 
       {/* ── Filtres avancés ──────────────────────────────── */}

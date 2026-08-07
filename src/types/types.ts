@@ -9,7 +9,12 @@ export interface ServerScore {
   total_plaintes: number;
   plaintes_valides: number;
   plaintes_viral: number;
+  plaintes_en_attente: number;
+  plaintes_rejetees: number;
   score: number;
+  game_type: string | null;
+  last_plainte_at: string | null;
+  top_admin_name: string | null;
   updated_at: string;
 }
 // Valeurs attendues par les règles Supabase RLS (vote_type in ['pour','contre'])
@@ -75,7 +80,9 @@ export interface Plainte {
   downvotes?: number;
   comment_count?: number;
   cited_article?: string | null;
+  is_compliant?: boolean;
   admin_note?: string | null;
+  game_type?: string | null;
 }
 
 export interface Accuse {

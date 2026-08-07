@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useGoBack } from '@/hooks/use-go-back';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
+import { supabase } from '@/db/supabase';
 import {
   Dialog,
   DialogContent,
@@ -24,6 +25,13 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import {
   ThumbsUp,
   ThumbsDown,
@@ -46,7 +54,13 @@ import {
   CheckCircle2,
   Scale,
   BookOpen,
+  Share2,
+  Copy,
+  Check,
+  Globe,
 } from 'lucide-react';
+import GameBadge from '@/components/common/GameBadge';
+import { slugify } from '@/lib/slugify';
 import CategoryBadge from '@/components/common/CategoryBadge';
 import StatusBadge from '@/components/common/StatusBadge';
 import { useAuth } from '@/contexts/AuthContext';
@@ -73,8 +87,8 @@ import {
   computeDossierScore,
   DossierScoreWidget,
   DossierScoreBanner,
-} from '@/lib/dossierScore.tsx';
-import type { DossierScoreInput } from '@/lib/dossierScore.tsx';
+} from '@/components/common/DossierScore';
+import type { DossierScoreInput } from '@/components/common/DossierScore';
 
 export default function PlainteDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -101,33 +115,106 @@ export default function PlainteDetailPage() {
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
   const [lightboxType, setLightboxType] = useState<'image' | 'video'>('image');
   const [pdfLoading, setPdfLoading] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
+
+  const pageUrl = typeof window !== 'undefined' ? window.location.href : '';
+
+  const handleCopyLink = () => {
+    navigator.clipboard.writeText(pageUrl).then(() => {
+      setLinkCopied(true);
+      toast.success('Lien copié dans le presse-papier !');
+      setTimeout(() => setLinkCopied(false), 2000);
+    });
+  };
+
+  const handleShareNative = async () => {
+    if (!plainte) return;
+    const shareText = `⚠️ Dossier RPGuard — Abus signalé sur ${plainte.game_server_name}\nAdmin visé : ${plainte.admin_name}\nStatut : ${plainte.status}\n🔗 ${pageUrl}`;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: `RPGuard — ${plainte.game_server_name}`, text: shareText, url: pageUrl });
+      } catch { /* annulé */ }
+    } else {
+      navigator.clipboard.writeText(shareText).then(() =>
+        toast.success('Texte de partage copié ! Collez-le où vous voulez.')
+      );
+    }
+  };
+
+  const handleShareX = () => {
+    if (!plainte) return;
+    const text = encodeURIComponent(
+      `⚠️ Abus signalé sur ${plainte.game_server_name} — admin : ${plainte.admin_name}\nDossier communautaire RPGuard`
+    );
+    window.open(`https://twitter.com/intent/tweet?text=${text}&url=${encodeURIComponent(pageUrl)}`, '_blank', 'noopener');
+  };
 
   const handleExportPdf = async () => {
     if (!plainte || pdfLoading) return;
     setPdfLoading(true);
     try {
       // Export PDF via la Supabase Edge Function `export-plainte-pdf`
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
+      const supabaseUrl    = import.meta.env.VITE_SUPABASE_URL as string;
       const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+
+      // Récupère le token de session pour l'autorisation (utilisateur connecté ou non)
+      const { data: { session } } = await supabase.auth.getSession();
+      const bearerToken = session?.access_token ?? supabaseAnonKey;
+
       const url = `${supabaseUrl}/functions/v1/export-plainte-pdf?id=${plainte.id}`;
       const res = await fetch(url, {
         headers: {
-          'Authorization': `Bearer ${supabaseAnonKey}`,
+          'Authorization': `Bearer ${bearerToken}`,
+          'apikey': supabaseAnonKey,
         },
       });
-      if (!res.ok) throw new Error('Erreur serveur');
+
+      if (!res.ok) {
+        // Fallback : ouvrir le dossier dans Google Docs Viewer via la page publique
+        const pageUrl = `${window.location.origin}/plaintes/${plainte.id}`;
+        const googleDocsUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(pageUrl)}&embedded=false`;
+        toast.error(
+          "Le PDF n'a pas pu être généré. Ouverture alternative en cours…",
+          { duration: 4000 }
+        );
+        setTimeout(() => window.open(googleDocsUrl, '_blank', 'noopener'), 1500);
+        return;
+      }
+
       const blob = await res.blob();
+      // Vérifie que la réponse est bien un PDF (pas un JSON d'erreur)
+      if (!blob.type.includes('pdf')) {
+        throw new Error('Réponse invalide du serveur');
+      }
+
       const serverName = plainte.game_server_name.replace(/[^a-zA-Z0-9]/g, '_').slice(0, 40);
-      const filename = `RPGuard_plainte_${serverName}_${plainte.id.slice(0, 8)}.pdf`;
+      const filename = `RPGuard_dossier_${serverName}_${plainte.id.slice(0, 8)}.pdf`;
       const objUrl = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = objUrl;
       a.download = filename;
       a.click();
       URL.revokeObjectURL(objUrl);
-      toast.success('PDF téléchargé avec succès');
+
+      // Enregistre dans l'historique si l'utilisateur est connecté
+      const { data: { session: sessionAfter } } = await supabase.auth.getSession();
+      if (sessionAfter?.user) {
+        await supabase.from('pdf_exports').insert({
+          user_id:     sessionAfter.user.id,
+          plainte_id:  plainte.id,
+          server_name: plainte.game_server_name,
+          admin_name:  plainte.admin_name ?? '',
+          filename,
+        });
+      }
+
+      toast.success('Dossier téléchargé avec succès ✓');
     } catch {
-      toast.error('Impossible de générer le PDF. Réessayez.');
+      // Fallback Google Docs en cas d'erreur réseau ou autre
+      const pageUrl = `${window.location.origin}/plaintes/${plainte.id}`;
+      const googleDocsUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(pageUrl)}&embedded=false`;
+      toast.error('Erreur PDF — ouverture alternative dans Google Docs…', { duration: 4000 });
+      setTimeout(() => window.open(googleDocsUrl, '_blank', 'noopener'), 1500);
     } finally {
       setPdfLoading(false);
     }
@@ -374,21 +461,62 @@ export default function PlainteDetailPage() {
             Retour aux plaintes
           </button>
 
-          {/* Bouton export PDF — compatible tous appareils */}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleExportPdf}
-            disabled={pdfLoading}
-            className="rounded-full gap-2 shrink-0"
-          >
-            {pdfLoading
-              ? <Loader2 className="w-4 h-4 animate-spin" />
-              : <Download className="w-4 h-4" />}
-            <span className="hidden sm:inline">
-              {pdfLoading ? 'Génération…' : 'Exporter PDF'}
-            </span>
-          </Button>
+          {/* Actions : Partager + PDF */}
+          <div className="flex items-center gap-2 shrink-0">
+            {/* Bouton Partager avec dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="rounded-full gap-2">
+                  <Share2 className="w-4 h-4" />
+                  <span className="hidden sm:inline">Diffuser</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuItem onClick={handleCopyLink} className="gap-2">
+                  {linkCopied
+                    ? <Check className="w-4 h-4 text-green-600" />
+                    : <Copy className="w-4 h-4" />}
+                  {linkCopied ? 'Lien copié !' : 'Copier le lien direct'}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleShareNative} className="gap-2">
+                  <Share2 className="w-4 h-4" />
+                  Partager ce dossier
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleShareX} className="gap-2">
+                  <Globe className="w-4 h-4" />
+                  Publier sur X (Twitter)
+                </DropdownMenuItem>
+                {plainte.game_server_name && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem asChild className="gap-2">
+                      <Link to={`/serveurs/${slugify(plainte.game_server_name)}`}>
+                        <ExternalLink className="w-4 h-4" />
+                        Voir la fiche du serveur
+                      </Link>
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* Bouton export dossier PDF */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExportPdf}
+              disabled={pdfLoading}
+              title="Télécharger le dossier complet en PDF. En cas d'échec, ouverture dans Google Docs."
+              className="rounded-full gap-2"
+            >
+              {pdfLoading
+                ? <Loader2 className="w-4 h-4 animate-spin" />
+                : <Download className="w-4 h-4" />}
+              <span className="hidden sm:inline">
+                {pdfLoading ? 'Génération…' : 'Télécharger'}
+              </span>
+            </Button>
+          </div>
         </div>
 
         {/* Bannière visiteur */}
@@ -425,6 +553,12 @@ export default function PlainteDetailPage() {
                 Preuves vérifiées
               </span>
             )}
+            {plainte.is_compliant && (
+              <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium bg-green-50 text-green-700 border border-green-200 dark:bg-green-950/20 dark:text-green-400 dark:border-green-800/40">
+                <ShieldCheck className="w-3.5 h-3.5" />
+                Conforme au règlement
+              </span>
+            )}
           </div>
 
           {/* Article du règlement cité par la modération */}
@@ -444,9 +578,20 @@ export default function PlainteDetailPage() {
               </div>
             </div>
           )}
-          <h1 className="text-xl md:text-2xl font-semibold text-foreground mb-2 text-balance">
-            {plainte.game_server_name}
-          </h1>
+          <div className="flex flex-wrap items-center gap-2 mb-2">
+            <h1 className="text-xl md:text-2xl font-semibold text-foreground text-balance">
+              {plainte.game_server_name}
+            </h1>
+            {plainte.game_type && <GameBadge gameType={plainte.game_type} size="sm" />}
+            <Link
+              to={`/serveurs/${slugify(plainte.game_server_name)}`}
+              className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
+              title="Voir tous les dossiers de ce serveur"
+            >
+              <ExternalLink className="w-3 h-3" />
+              <span className="hidden sm:inline">Fiche serveur</span>
+            </Link>
+          </div>
           <p className="text-sm text-muted-foreground mb-4">
             Admin visé : <span className="font-semibold text-foreground">{plainte.admin_name}</span>
           </p>

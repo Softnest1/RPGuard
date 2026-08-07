@@ -54,6 +54,7 @@ RPGuard est une plateforme communautaire permettant aux joueurs de jeux vidéo d
 - Badges de catégorie colorés pour identification rapide
 - Indicateurs visuels forts pour les votes et statuts
 - Bulles de messages claires pour la messagerie (style iMessage/WhatsApp)
+- Badges de conformité visuellement distincts (vert pour conforme, gris pour non vérifié)
 
 ## 4. Structure des pages et fonctionnalités
 
@@ -112,7 +113,7 @@ RPGuard est une plateforme communautaire permettant aux joueurs de jeux vidéo d
 
 #### 4.2.5 Plaintes récentes mises en avant
 - Afficher les 5 dernières plaintes avec badge de vérification si preuves solides
-- Pour chaque plainte : nom du jeu/serveur, nom de l'administrateur, extrait de la description, nombre de votes, badge de catégorie coloré, date de dépôt
+- Pour chaque plainte : nom du jeu/serveur, nom de l'administrateur, extrait de la description, nombre de votes, badge de catégorie coloré, badge de conformité, date de dépôt
 - Lien vers le détail de chaque plainte
 
 #### 4.2.6 Section FAQ
@@ -164,6 +165,7 @@ RPGuard est une plateforme communautaire permettant aux joueurs de jeux vidéo d
 - Étape 1 : Informations du serveur
   + Champ : Nom du jeu/serveur (texte libre)
   + Champ : Catégorie de jeu (sélection parmi : GTA RP, ONESTATE RP, Autres jeux RP, Autres jeux)
+  + Champ : Catégorie d'abus (sélection parmi : Abus de pouvoir, Fausse preuve, Discrimination, Sanction injustifiée, Autre)
   + Champ : Nom de l'administrateur concerné (texte libre)
 - Étape 2 : Description de l'incident
   + Champ : Description détaillée de l'abus (zone de texte)
@@ -171,13 +173,30 @@ RPGuard est une plateforme communautaire permettant aux joueurs de jeux vidéo d
 - Étape 3 : Preuves
   + Champ : Preuves/Screenshots (téléchargement de fichiers vers Supabase Storage)
   + Message de rassurance : « Vos preuves sont stockées de manière sécurisée et confidentielle »
-- Bouton de soumission : « Publier ma plainte »
+- Étape 4 : Checklist de conformité au règlement
+  + Case à cocher 1 : « J'ai lu et je respecte l'Article 4 — Dépôt de plainte »
+  + Case à cocher 2 : « Je certifie que ma plainte est véridique conformément à l'Article 5 — Véracité et bonne foi »
+  + Case à cocher 3 : « Je fournis des preuves tangibles conformément à l'Article 7 — Système de votes et commentaires »
+  + Les 3 cases doivent être cochées pour activer le bouton de soumission
+  + Si les cases ne sont pas cochées, le bouton de soumission est désactivé avec message explicatif
+- Bouton de soumission : « Publier ma plainte » (actif uniquement si les 3 cases sont cochées)
 
-#### 4.4.3 Enregistrement
+#### 4.4.3 Encart contextuel « Article applicable »
+- Afficher un encart selon la catégorie d'abus sélectionnée
+- Contenu de l'encart : titre de l'article applicable et résumé court (2-3 lignes)
+- Exemples de correspondances :
+  + Abus de pouvoir → Article 4 — Dépôt de plainte
+  + Fausse preuve → Article 7 — Système de votes et commentaires
+  + Discrimination → Article 6 — Respect et civilité
+  + Sanction injustifiée → Article 5 — Véracité et bonne foi
+  + Autre → Article 4 — Dépôt de plainte
+
+#### 4.4.4 Enregistrement
 - Enregistrer la plainte avec statut « En attente » via Supabase Database
 - Associer la plainte à l'utilisateur connecté
 - Stocker les screenshots dans Supabase Storage
 - Générer les URLs publiques des preuves
+- Enregistrer l'état de la checklist de conformité (3 cases cochées = conforme)
 - Déclencher une Edge Function pour attribution automatique du badge de vérification si preuves présentes
 - Redirection vers le détail de la plainte créée
 
@@ -185,7 +204,7 @@ RPGuard est une plateforme communautaire permettant aux joueurs de jeux vidéo d
 
 #### 4.5.1 Affichage des plaintes
 - Design de carte clair pour chaque plainte
-- Pour chaque plainte : badge de catégorie coloré, nom du jeu/serveur, nom de l'administrateur, extrait de la description, indicateur de votes visuellement fort (upvote/downvote), nombre de commentaires, statut, badge de vérification si preuves solides, date de dépôt
+- Pour chaque plainte : badge de catégorie coloré, nom du jeu/serveur, nom de l'administrateur, extrait de la description, indicateur de votes visuellement fort (upvote/downvote), nombre de commentaires, statut, badge de vérification si preuves solides, badge de conformité (vert « Conforme au règlement » si checklist validée, gris « Non vérifié » sinon), date de dépôt
 
 #### 4.5.2 Filtres
 - Filtre par catégorie de jeu (GTA RP, ONESTATE RP, Autres jeux RP, Autres jeux)
@@ -199,8 +218,8 @@ RPGuard est une plateforme communautaire permettant aux joueurs de jeux vidéo d
 ### 4.6 Détail d'une plainte
 
 #### 4.6.1 Informations de la plainte
-- Afficher toutes les informations : badge de catégorie coloré, nom du jeu/serveur, nom de l'administrateur, description complète, statut, badge de vérification si preuves solides, date de dépôt, auteur
-- Si un article du règlement a été cité par l'administrateur lors du traitement : afficher la référence à l'article (ex: « Article 5 — Véracité et bonne foi »)
+- Afficher toutes les informations : badge de catégorie coloré, nom du jeu/serveur, nom de l'administrateur, description complète, statut, badge de vérification si preuves solides, badge de conformité (vert « Conforme au règlement » si checklist validée, gris « Non vérifié » sinon), date de dépôt, auteur
+- Si un article du règlement a été cité par l'administrateur lors du traitement : afficher la référence à l'article avec son titre et un résumé court (2-3 lignes)
 
 #### 4.6.2 Présentation des preuves
 - Afficher les screenshots/preuves de manière claire et organisée
@@ -231,6 +250,11 @@ RPGuard est une plateforme communautaire permettant aux joueurs de jeux vidéo d
 - Afficher un lien vers la page Règlement RPGuard
 - Texte du lien : « Consulter le règlement de la plateforme »
 
+#### 4.6.8 Export PDF
+- Bouton « Exporter en PDF » accessible à l'auteur de la plainte et aux administrateurs
+- Le PDF contient : toutes les informations de la plainte, preuves, timeline, votes, commentaires
+- Si un article a été cité par la modération : afficher le titre de l'article ET son résumé (2-3 lignes) dans le PDF
+
 ### 4.7 Tableau de bord utilisateur
 
 #### 4.7.1 Accès
@@ -245,7 +269,7 @@ RPGuard est une plateforme communautaire permettant aux joueurs de jeux vidéo d
 - Statistiques visuelles : nombre total de plaintes déposées, nombre de plaintes par statut (En attente, Validée, Rejetée)
 - Graphique ou indicateurs visuels pour les statistiques
 - Afficher toutes les plaintes déposées par l'utilisateur
-- Pour chaque plainte : nom du jeu/serveur, nom de l'administrateur, statut, nombre de votes, nombre de commentaires, date de dépôt
+- Pour chaque plainte : nom du jeu/serveur, nom de l'administrateur, statut, nombre de votes, nombre de commentaires, badge de conformité, date de dépôt
 - Lien vers le détail de chaque plainte
 
 #### 4.7.4 Section Notifications
@@ -333,6 +357,7 @@ RPGuard est une plateforme communautaire permettant aux joueurs de jeux vidéo d
 - Introduction expliquant l'objectif du règlement
 - Liste des articles numérotés (Article 1, Article 2, etc.)
 - Chaque article contient un titre et un contenu détaillé
+- Pour chaque article : afficher un compteur « X dossiers citent cet article » basé sur les données réelles de la base de données
 
 #### 4.10.3 Contenu des articles
 
@@ -389,6 +414,7 @@ Le présent règlement est soumis au droit français. En cas de litige relatif �
 
 #### 4.10.4 Affichage des articles
 - Chaque article est affiché avec son numéro, son titre et son contenu complet
+- Sous chaque article : afficher le compteur « X dossiers citent cet article » avec le nombre réel de plaintes ayant cité cet article
 - Espacement généreux entre les articles pour faciliter la lecture
 - Typographie claire et hiérarchisée
 
@@ -460,20 +486,27 @@ Le présent règlement est soumis au droit français. En cas de litige relatif �
 - id (UUID, clé primaire)
 - name (texte : GTA RP, ONESTATE RP, Autres jeux RP, Autres jeux)
 
-#### 5.1.4 Table plaintes
+#### 5.1.4 Table abuse_categories
+- id (UUID, clé primaire)
+- name (texte : Abus de pouvoir, Fausse preuve, Discrimination, Sanction injustifiée, Autre)
+- applicable_article (texte : référence à l'article du règlement)
+
+#### 5.1.5 Table plaintes
 - id (UUID, clé primaire)
 - user_id (UUID, référence users.id)
 - category_id (UUID, référence categories.id)
+- abuse_category_id (UUID, référence abuse_categories.id)
 - game_server_name (texte)
 - admin_name (texte)
 - description (texte)
 - status (enum : En attente, Validée, Rejetée)
 - has_strong_evidence (booléen, pour badge de vérification)
+- is_compliant (booléen, pour badge de conformité)
 - cited_article (texte, nullable, pour référence à un article du règlement)
 - created_at (timestamp)
 - updated_at (timestamp)
 
-#### 5.1.5 Table votes
+#### 5.1.6 Table votes
 - id (UUID, clé primaire)
 - plainte_id (UUID, référence plaintes.id)
 - user_id (UUID, référence users.id)
@@ -481,26 +514,26 @@ Le présent règlement est soumis au droit français. En cas de litige relatif �
 - created_at (timestamp)
 - Contrainte unique : (plainte_id, user_id)
 
-#### 5.1.6 Table commentaires
+#### 5.1.7 Table commentaires
 - id (UUID, clé primaire)
 - plainte_id (UUID, référence plaintes.id)
 - user_id (UUID, référence users.id)
 - content (texte)
 - created_at (timestamp)
 
-#### 5.1.7 Table signalements
+#### 5.1.8 Table signalements
 - id (UUID, clé primaire)
 - plainte_id (UUID, référence plaintes.id)
 - user_id (UUID, référence users.id)
 - created_at (timestamp)
 
-#### 5.1.8 Table preuves
+#### 5.1.9 Table preuves
 - id (UUID, clé primaire)
 - plainte_id (UUID, référence plaintes.id)
 - file_path (texte, chemin dans Supabase Storage)
 - created_at (timestamp)
 
-#### 5.1.9 Table notifications
+#### 5.1.10 Table notifications
 - id (UUID, clé primaire)
 - user_id (UUID, référence users.id)
 - plainte_id (UUID, référence plaintes.id, nullable)
@@ -509,7 +542,7 @@ Le présent règlement est soumis au droit français. En cas de litige relatif �
 - is_read (booléen, par défaut false)
 - created_at (timestamp)
 
-#### 5.1.10 Table contact_messages
+#### 5.1.11 Table contact_messages
 - id (UUID, clé primaire)
 - name (texte)
 - email (texte)
@@ -517,14 +550,14 @@ Le présent règlement est soumis au droit français. En cas de litige relatif �
 - message (texte)
 - created_at (timestamp)
 
-#### 5.1.11 Table conversations
+#### 5.1.12 Table conversations
 - id (UUID, clé primaire)
 - user1_id (UUID, référence users.id)
 - user2_id (UUID, référence users.id)
 - created_at (timestamp)
 - Contrainte unique : (user1_id, user2_id)
 
-#### 5.1.12 Table messages
+#### 5.1.13 Table messages
 - id (UUID, clé primaire)
 - conversation_id (UUID, référence conversations.id)
 - sender_id (UUID, référence users.id)
@@ -576,6 +609,8 @@ Le présent règlement est soumis au droit français. En cas de litige relatif �
 - Fonction pour création de conversation entre deux utilisateurs
 - Fonction pour envoi de message dans une conversation
 - Fonction pour enregistrement de l'article cité lors du changement de statut d'une plainte
+- Fonction pour comptage du nombre de plaintes citant chaque article du règlement
+- Fonction pour génération de PDF incluant les informations de la plainte et l'article cité
 
 ### 5.6 Supabase Realtime
 - Abonnement en temps réel aux nouvelles plaintes pour mise à jour du compteur sur la page d'accueil
@@ -583,6 +618,7 @@ Le présent règlement est soumis au droit français. En cas de litige relatif �
 - Abonnement en temps réel aux scores serveurs pour mise à jour automatique
 - Abonnement en temps réel aux messages d'une conversation pour mise à jour instantanée
 - Abonnement en temps réel aux conversations pour mise à jour de la liste des conversations
+- Abonnement en temps réel aux compteurs d'articles cités pour mise à jour de la page règlement
 
 ### 5.7 Scheduled Tasks
 - Tâche planifiée pour nettoyage des notifications anciennes (plus de 30 jours)
@@ -600,44 +636,68 @@ Le présent règlement est soumis au droit français. En cas de litige relatif �
 - Attribué automatiquement aux plaintes avec au moins une preuve (screenshot) uploadée
 - Attribution gérée par Edge Function lors de la création de la plainte
 
-### 6.3 Système de votes
+### 6.3 Badge de conformité
+- Attribué automatiquement aux plaintes dont la checklist de conformité a été validée (3 cases cochées)
+- Badge vert « Conforme au règlement » si is_compliant = true
+- Badge gris « Non vérifié » si is_compliant = false
+- Attribution gérée lors de la création de la plainte
+
+### 6.4 Checklist de conformité
+- 3 cases à cocher obligatoires lors du dépôt de plainte
+- Case 1 : Article 4 — Dépôt de plainte
+- Case 2 : Article 5 — Véracité et bonne foi
+- Case 3 : Article 7 — Système de votes et commentaires
+- Si les 3 cases ne sont pas cochées : bouton de soumission désactivé
+- Si les 3 cases sont cochées : is_compliant = true, badge de conformité vert
+
+### 6.5 Encart contextuel article applicable
+- Afficher un encart selon la catégorie d'abus sélectionnée
+- Correspondances :
+  + Abus de pouvoir → Article 4
+  + Fausse preuve → Article 7
+  + Discrimination → Article 6
+  + Sanction injustifiée → Article 5
+  + Autre → Article 4
+- Contenu de l'encart : titre de l'article + résumé court (2-3 lignes)
+
+### 6.6 Système de votes
 - Un utilisateur connecté peut voter (upvote ou downvote) une seule fois par plainte
 - Un utilisateur peut modifier son vote (passer de upvote à downvote ou inversement)
 - Le score total = nombre d'upvotes - nombre de downvotes
 - Gestion des votes via Edge Function pour garantir l'unicité et la cohérence
 
-### 6.4 Système de signalement
+### 6.7 Système de signalement
 - Un utilisateur connecté peut signaler une plainte comme fausse
 - Plusieurs signalements sur une même plainte (seuil : 5 signalements) déclenchent une révision par la modération
 - Edge Function vérifie le nombre de signalements et marque la plainte pour modération si seuil atteint
 - La modération peut changer le statut de la plainte en « Rejetée » si jugée fausse
 
-### 6.5 Commentaires
+### 6.8 Commentaires
 - Seuls les utilisateurs connectés peuvent commenter
 - Les commentaires sont publics et visibles par tous
 - Création d'une notification pour l'auteur de la plainte lors d'un nouveau commentaire
 
-### 6.6 Preuves/Screenshots
+### 6.9 Preuves/Screenshots
 - Les fichiers téléchargés sont stockés dans Supabase Storage
 - Les preuves sont affichées dans le détail de la plainte via URLs publiques
 
-### 6.7 Compteur en temps réel
+### 6.10 Compteur en temps réel
 - Le compteur de nouvelles plaintes sur la page d'accueil se met à jour automatiquement via Supabase Realtime
 - Affiche le nombre de plaintes déposées dans les dernières 24 heures
 
-### 6.8 Notifications
+### 6.11 Notifications
 - Création automatique de notifications lors d'événements : nouveau commentaire sur une plainte de l'utilisateur, changement de statut d'une plainte de l'utilisateur, nouveau vote sur une plainte de l'utilisateur
 - Notifications gérées via Edge Functions
 - Affichage en temps réel via Supabase Realtime
 
-### 6.9 Scores serveurs
+### 6.12 Scores serveurs
 - Score calculé pour chaque serveur basé sur : nombre total de plaintes, nombre de plaintes validées, votes de la communauté
 - Formule de calcul : Score = (nombre de plaintes validées × 10) + (total des votes négatifs) - (total des votes positifs)
 - Score plus élevé = serveur avec plus de problèmes
 - Calcul effectué via Edge Function et Scheduled Task (mise à jour toutes les heures)
 - Affichage en temps réel via Supabase Realtime
 
-### 6.10 Récupération de mot de passe
+### 6.13 Récupération de mot de passe
 - Utilisateur saisit son email
 - Système affiche la question de sécurité associée au compte
 - Utilisateur saisit la réponse
@@ -645,12 +705,12 @@ Le présent règlement est soumis au droit français. En cas de litige relatif �
 - Si réponse correcte : permettre la réinitialisation du mot de passe via Supabase Auth
 - Si réponse incorrecte : afficher un message d'erreur, limiter les tentatives (3 tentatives maximum)
 
-### 6.11 Rôles et permissions
+### 6.14 Rôles et permissions
 - Rôle « user » : peut déposer des plaintes, voter, commenter, signaler, utiliser la messagerie
 - Rôle « admin » : peut tout faire + accès au panel admin (gestion des plaintes, utilisateurs, statistiques)
 - Vérification des rôles via Supabase RLS
 
-### 6.12 Messagerie en temps réel
+### 6.15 Messagerie en temps réel
 - Seuls les utilisateurs connectés peuvent accéder à la messagerie
 - Un utilisateur peut rechercher d'autres utilisateurs par nom d'utilisateur
 - Un utilisateur peut démarrer une conversation avec un autre utilisateur
@@ -666,18 +726,26 @@ Le présent règlement est soumis au droit français. En cas de litige relatif �
 - Les conversations sont triées par date du dernier message
 - Les messages non lus sont indiqués visuellement
 
-### 6.13 Règlement de la plateforme
+### 6.16 Règlement de la plateforme
 - Le règlement est accessible publiquement à tous les utilisateurs
 - Le règlement contient 15 articles détaillés couvrant tous les aspects de l'utilisation de la plateforme
 - Les administrateurs peuvent citer des articles du règlement lors du traitement des plaintes
 - La référence à un article est enregistrée dans le champ cited_article de la table plaintes
+- Chaque article affiche un compteur du nombre de plaintes citant cet article
+- Le compteur est calculé via Edge Function et mis à jour en temps réel via Supabase Realtime
 
-### 6.14 Citation d'articles du règlement par les administrateurs
+### 6.17 Citation d'articles du règlement par les administrateurs
 - Lors du changement de statut d'une plainte dans le panel admin, l'administrateur peut sélectionner un article du règlement dans une liste déroulante
 - La liste déroulante contient les 15 articles numérotés (Article 1 à Article 15)
 - La sélection d'un article est optionnelle
 - Si un article est sélectionné, la référence est enregistrée dans le champ cited_article de la table plaintes
-- L'article cité est affiché sur la page de détail de la plainte côté utilisateur
+- L'article cité est affiché sur la page de détail de la plainte côté utilisateur avec son titre et un résumé court (2-3 lignes)
+
+### 6.18 Export PDF
+- Accessible à l'auteur de la plainte et aux administrateurs
+- Le PDF contient toutes les informations de la plainte : nom du jeu/serveur, nom de l'administrateur, description, preuves, timeline, votes, commentaires
+- Si un article a été cité par la modération : afficher le titre de l'article ET son résumé (2-3 lignes) dans le PDF
+- Génération du PDF via Edge Function
 
 ## 7. Cas exceptionnels et limites
 
@@ -688,6 +756,7 @@ Le présent règlement est soumis au droit français. En cas de litige relatif �
 | Utilisateur non connecté tente de commenter | Redirection vers la page de connexion |
 | Utilisateur non connecté tente d'accéder à la messagerie | Redirection vers la page de connexion |
 | Formulaire de dépôt incomplet | Afficher un message d'erreur, empêcher la soumission |
+| Checklist de conformité non validée | Bouton de soumission désactivé avec message explicatif |
 | Aucune plainte ne correspond aux filtres | Afficher un message « Aucune plainte trouvée » |
 | Utilisateur tente de voter deux fois sur la même plainte | Remplacer le vote précédent par le nouveau via Edge Function |
 | Plainte signalée 5 fois ou plus | Marquer la plainte pour révision modération via Edge Function |
@@ -704,33 +773,38 @@ Le présent règlement est soumis au droit français. En cas de litige relatif �
 | Conversation ne se met pas à jour en temps réel | Afficher les derniers messages connus, proposer de rafraîchir |
 | Échec de lecture de message vocal | Afficher un message d'erreur |
 | Administrateur ne sélectionne pas d'article lors du changement de statut | Le champ cited_article reste vide (null) |
+| Échec de génération de PDF | Afficher un message d'erreur |
+| Compteur d'articles cités ne se met pas à jour | Afficher la dernière valeur connue |
 
 ## 8. Critères de validation
 
 1. Un utilisateur s'inscrit avec un nom d'utilisateur, email, mot de passe et question de sécurité
 2. L'utilisateur se connecte avec ses identifiants
 3. L'utilisateur accède au formulaire de dépôt de plainte
-4. L'utilisateur remplit le formulaire (nom du jeu/serveur, catégorie, nom de l'administrateur, description, preuves) et soumet
-5. La plainte apparaît dans la liste des plaintes avec statut « En attente » et badge de vérification
-6. Un autre utilisateur consulte le détail de la plainte, vote (upvote) et ajoute un commentaire
-7. L'auteur de la plainte reçoit une notification en temps réel
-8. L'auteur de la plainte accède à son tableau de bord et visualise sa plainte avec le vote et le commentaire reçus
-9. Un administrateur accède au panel admin, change le statut de la plainte en « Validée » et sélectionne « Article 4 — Dépôt de plainte » dans la liste déroulante
-10. L'utilisateur consulte le détail de la plainte et voit l'article cité affiché
-11. L'utilisateur consulte la page scores serveurs et voit le score du serveur concerné mis à jour en temps réel
-12. L'utilisateur accède à la messagerie et recherche un autre utilisateur
-13. L'utilisateur démarre une conversation avec l'utilisateur trouvé
-14. L'utilisateur envoie un message texte avec emoji
-15. L'utilisateur enregistre et envoie un message vocal
-16. L'autre utilisateur reçoit les messages en temps réel et répond
-17. L'utilisateur consulte la page Règlement RPGuard et lit les 15 articles
+4. L'utilisateur remplit le formulaire (nom du jeu/serveur, catégorie, catégorie d'abus, nom de l'administrateur, description, preuves)
+5. L'utilisateur voit l'encart contextuel affichant l'article applicable selon la catégorie d'abus sélectionnée
+6. L'utilisateur coche les 3 cases de la checklist de conformité
+7. L'utilisateur soumet la plainte
+8. La plainte apparaît dans la liste des plaintes avec statut « En attente », badge de vérification et badge de conformité vert
+9. Un autre utilisateur consulte le détail de la plainte, vote (upvote) et ajoute un commentaire
+10. L'auteur de la plainte reçoit une notification en temps réel
+11. L'auteur de la plainte accède à son tableau de bord et visualise sa plainte avec le vote et le commentaire reçus
+12. Un administrateur accède au panel admin, change le statut de la plainte en « Validée » et sélectionne « Article 4 — Dépôt de plainte » dans la liste déroulante
+13. L'utilisateur consulte le détail de la plainte et voit l'article cité affiché avec son titre et son résumé
+14. L'utilisateur exporte la plainte en PDF et vérifie que l'article cité apparaît dans le PDF
+15. L'utilisateur consulte la page Règlement RPGuard et voit le compteur « 1 dossier cite cet article » sous l'Article 4
+16. L'utilisateur consulte la page scores serveurs et voit le score du serveur concerné mis à jour en temps réel
+17. L'utilisateur accède à la messagerie et recherche un autre utilisateur
+18. L'utilisateur démarre une conversation avec l'utilisateur trouvé
+19. L'utilisateur envoie un message texte avec emoji
+20. L'utilisateur enregistre et envoie un message vocal
+21. L'autre utilisateur reçoit les messages en temps réel et répond
 
 ## 9. Fonctionnalités non incluses dans cette version
 
 - Notifications par email ou push
 - Système de badges ou récompenses pour les utilisateurs actifs
 - Modération automatique par intelligence artificielle
-- Export des plaintes en PDF
 - Statistiques avancées par serveur ou administrateur
 - Système de réputation pour les administrateurs
 - Intégration avec les plateformes de jeux (API)

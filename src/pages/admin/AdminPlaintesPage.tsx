@@ -117,17 +117,26 @@ export default function AdminPlaintesPage() {
   useEffect(() => { load(); }, [load]);
   useEffect(() => { setParams(filter !== 'tous' ? { status: filter } : {}); }, [filter, setParams]);
 
+  // Garde anti-double-clic pour toutes les actions admin async
+  const [savingId, setSavingId] = useState<string | null>(null);
+
   const changeStatus = async (id: string, status: PlainteStatus) => {
+    if (savingId) return;
+    setSavingId(id + ':status:' + status);
     try {
       await adminUpdatePlainte(id, { status });
       setPlaintes(prev => prev.map(p => p.id === id ? { ...p, status } : p));
       toast.success(`Statut mis à jour : ${status}`);
     } catch {
       toast.error('Erreur mise à jour statut');
+    } finally {
+      setSavingId(null);
     }
   };
 
   const saveArticle = async (id: string, article: string | null) => {
+    if (savingId) return;
+    setSavingId(id + ':article');
     try {
       await adminUpdatePlainte(id, { cited_article: article });
       setPlaintes(prev => prev.map(p => p.id === id ? { ...p, cited_article: article } : p));
@@ -135,10 +144,14 @@ export default function AdminPlaintesPage() {
       toast.success(article ? `Article cité : ${article}` : 'Référence d\'article retirée');
     } catch {
       toast.error('Erreur sauvegarde article');
+    } finally {
+      setSavingId(null);
     }
   };
 
   const saveNote = async (id: string, note: string) => {
+    if (savingId) return;
+    setSavingId(id + ':note');
     try {
       await adminUpdatePlainte(id, { admin_note: note || undefined });
       setPlaintes(prev => prev.map(p => p.id === id ? { ...p, admin_note: note || null } : p));
@@ -146,6 +159,8 @@ export default function AdminPlaintesPage() {
       toast.success('Note enregistrée');
     } catch {
       toast.error('Erreur sauvegarde note');
+    } finally {
+      setSavingId(null);
     }
   };
 
@@ -294,8 +309,10 @@ export default function AdminPlaintesPage() {
                           maxLength={1000}
                         />
                         <div className="flex gap-2">
-                          <Button size="sm" onClick={() => saveNote(p.id, editNote.text)}>Enregistrer</Button>
-                          <Button size="sm" variant="outline" onClick={() => setEditNote(null)}>Annuler</Button>
+                          <Button size="sm" disabled={!!savingId} onClick={() => saveNote(p.id, editNote.text)}>
+                            {savingId === p.id + ':note' ? 'Enregistrement…' : 'Enregistrer'}
+                          </Button>
+                          <Button size="sm" variant="outline" disabled={!!savingId} onClick={() => setEditNote(null)}>Annuler</Button>
                         </div>
                       </div>
                     ) : (
@@ -319,7 +336,7 @@ export default function AdminPlaintesPage() {
                           variant={p.status === status ? 'default' : 'outline'}
                           className="gap-1.5 text-xs h-8"
                           onClick={() => changeStatus(p.id, status)}
-                          disabled={p.status === status}
+                          disabled={p.status === status || !!savingId}
                         >
                           <Icon className="w-3.5 h-3.5" />
                           {label}
@@ -351,27 +368,28 @@ export default function AdminPlaintesPage() {
                           </SelectContent>
                         </Select>
                         <div className="flex gap-2">
-                          <Button
-                            size="sm"
-                            onClick={() => saveArticle(p.id, editArticle.value || null)}
-                            disabled={!editArticle.value}
-                          >
-                            Enregistrer
-                          </Button>
-                          <Button size="sm" variant="outline" onClick={() => setEditArticle(null)}>
-                            Annuler
-                          </Button>
-                          {p.cited_article && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="text-destructive border-destructive/20 hover:bg-destructive/8 gap-1.5"
-                              onClick={() => saveArticle(p.id, null)}
-                            >
-                              <X className="w-3 h-3" /> Retirer
-                            </Button>
-                          )}
-                        </div>
+                           <Button
+                             size="sm"
+                             onClick={() => saveArticle(p.id, editArticle.value || null)}
+                             disabled={!editArticle.value || !!savingId}
+                           >
+                             {savingId === p.id + ':article' ? 'Enregistrement…' : 'Enregistrer'}
+                           </Button>
+                           <Button size="sm" variant="outline" disabled={!!savingId} onClick={() => setEditArticle(null)}>
+                             Annuler
+                           </Button>
+                           {p.cited_article && (
+                             <Button
+                               size="sm"
+                               variant="outline"
+                               className="text-destructive border-destructive/20 hover:bg-destructive/8 gap-1.5"
+                               disabled={!!savingId}
+                               onClick={() => saveArticle(p.id, null)}
+                             >
+                               <X className="w-3 h-3" /> Retirer
+                             </Button>
+                           )}
+                         </div>
                       </div>
                     ) : (
                       <div

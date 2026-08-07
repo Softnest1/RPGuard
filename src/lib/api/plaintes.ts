@@ -1,7 +1,7 @@
 // ── Plaintes ──────────────────────────────────────────────────────────────────
 import { supabase } from '@/db/supabase';
 import type { Plainte } from '@/types/types';
-import { getCached, setCache } from './_cache';
+import { getCached, setCache, invalidateCache } from './_cache';
 import { normalizePlainte, normalizePlaintes } from './_helpers';
 
 const PAGE_SIZE = 12;
@@ -38,11 +38,13 @@ const PLAINTE_SELECT_LIGHT = `
 `;
 
 export interface FetchPlaintesOptions {
-  categoryId?: string;
-  search?:     string;
-  status?:     string;
-  sortBy?:     'date' | 'votes';
-  limit?:      number;
+  categoryId?:   string;
+  search?:       string;
+  exactServer?:  string; // filtre DB exact sur game_server_name (ILIKE insensible à la casse)
+  status?:       string;
+  gameType?:     string;
+  sortBy?:       'date' | 'votes';
+  limit?:        number;
 }
 
 export interface PlaintesCursorPage {
@@ -53,9 +55,9 @@ export interface PlaintesCursorPage {
 
 /** Liste filtrée avec cache 2 min en mémoire. */
 export async function fetchPlaintes(options: FetchPlaintesOptions = {}): Promise<Plainte[]> {
-  const { categoryId, search, status, sortBy = 'date', limit = PAGE_SIZE } = options;
+  const { categoryId, search, exactServer, status, gameType, sortBy = 'date', limit = PAGE_SIZE } = options;
   const safeLimit = Math.min(limit, 100);
-  const cacheKey  = `plaintes:${JSON.stringify({ categoryId, search, status, sortBy, safeLimit })}`;
+  const cacheKey  = `plaintes:${JSON.stringify({ categoryId, search, exactServer, status, gameType, sortBy, safeLimit })}`;
 
   const cached = getCached<Plainte[]>(cacheKey);
   if (cached) return cached;
@@ -66,8 +68,11 @@ export async function fetchPlaintes(options: FetchPlaintesOptions = {}): Promise
     .order('created_at', { ascending: false })
     .limit(safeLimit);
 
-  if (categoryId)                 q = q.eq('category_id', categoryId);
-  if (status && status !== 'all') q = q.eq('status', status);
+  if (categoryId)                      q = q.eq('category_id', categoryId);
+  if (status && status !== 'all')      q = q.eq('status', status);
+  if (gameType && gameType !== 'all')  q = q.eq('game_type', gameType);
+  // Filtre exact server — côté DB, pas de faux positifs sur description/admin
+  if (exactServer)                     q = q.ilike('game_server_name', exactServer);
 
   const { data } = await q;
   let plaintes = normalizePlaintes(Array.isArray(data) ? data : []);
@@ -167,6 +172,7 @@ export async function fetchMyPlaintes(userId: string): Promise<Plainte[]> {
     .select(`
       id, user_id, category_id, game_server_name, admin_name, description, status,
       has_strong_evidence, created_at, updated_at, admin_note,
+      pseudo_rp, raison, contexte, date_incident, is_compliant, cited_article, game_type,
       profiles!plaintes_user_id_fkey(username, avatar_url, pseudo_rp),
       categories!plaintes_category_id_fkey(name, color),
       votes(vote_type),
@@ -179,35 +185,63 @@ export async function fetchMyPlaintes(userId: string): Promise<Plainte[]> {
 }
 
 export async function createPlainte(data: {
+  user_id?:         string;
   category_id:      string;
   game_server_name: string;
   admin_name:       string;
   description:      string;
+  status?:          string;
+  has_strong_evidence?: boolean;
   pseudo_rp?:       string;
   raison?:          string;
   date_incident?:   string;
   contexte?:        string;
+  demarche_prealable?: string;
+  server_discord_link?: string;
+  server_email?:    string;
+  server_topserveur_link?: string;
+  accused_discord_tag?: string;
+  is_compliant?:    boolean;
+  game_type?:       string;
 }): Promise<string> {
   const { data: row, error } = await supabase
     .from('plaintes')
     .insert({
+      user_id:          data.user_id              || null,
       category_id:      data.category_id,
       game_server_name: data.game_server_name.trim().slice(0, 120),
       admin_name:       data.admin_name.trim().slice(0, 64),
       description:      data.description.trim().slice(0, 5000),
-      pseudo_rp:        data.pseudo_rp?.trim()   || null,
-      raison:           data.raison?.trim()       || null,
-      date_incident:    data.date_incident        || null,
-      contexte:         data.contexte?.trim()     || null,
+      status:           data.status               || 'En attente',
+      has_strong_evidence: data.has_strong_evidence ?? false,
+      pseudo_rp:        data.pseudo_rp?.trim()    || null,
+      raison:           data.raison?.trim()        || null,
+      date_incident:    data.date_incident         || null,
+      contexte:         data.contexte?.trim()      || null,
+      demarche_prealable: data.demarche_prealable?.trim() || null,
+      server_discord_link: data.server_discord_link?.trim() || null,
+      server_email:     data.server_email?.trim()  || null,
+      server_topserveur_link: data.server_topserveur_link?.trim() || null,
+      accused_discord_tag: data.accused_discord_tag?.trim() || null,
+      is_compliant:     data.is_compliant          ?? false,
+      game_type:        data.game_type             || null,
     })
     .select('id')
     .maybeSingle();
 
-  if (error) throw new Error(error.message);
-  if (!row)  throw new Error('Création de la plainte échouée.');
+  if (error) {
+    // Doublon détecté par la contrainte unique DB
+    if (error.code === '23505') {
+      throw new Error('Vous avez déjà déposé une plainte contre cet admin sur ce serveur. Consultez votre tableau de bord.');
+    }
+    throw new Error(error.message);
+  }
+  if (!row) throw new Error('Création de la plainte échouée.');
 
-  // Incrémenter le compteur — fire-and-forget
-  void supabase.rpc('increment_stats_counter', { col: 'total_count' });
+  // Invalider le cache frontend pour que la liste /plaintes reflète immédiatement la nouvelle plainte
+  invalidateCache('plaintes:');
+  invalidateCache('recent_');
+  invalidateCache('stats:');
 
   return row.id as string;
 }

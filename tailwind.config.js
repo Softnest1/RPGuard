@@ -15,6 +15,23 @@ export default {
     safelist: ['border', 'border-border'],
     prefix: '',
     theme: {
+        // ── Breakpoints globaux — tous les appareils ────────────────────────
+        // md   768  : tablette portrait / téléphone paysage / Chrome "Version ordinateur"
+        // lg   1024 : tablette paysage / laptop 13"
+        // xl   1280 : laptop 15" / desktop HD
+        // 2xl  1536 : desktop FHD (1920 affiché à 125%)
+        // 3xl  1920 : full-HD natif, TV HD, projecteur 1080p
+        // 4xl  2560 : QHD / 2K, iMac 27", cinéma
+        // 5xl  3840 : 4K UHD, TV 4K, écran cinéma / voiture Tesla
+        screens: {
+            'md':  '768px',
+            'lg':  '1024px',
+            'xl':  '1280px',
+            '2xl': '1536px',
+            '3xl': '1920px',
+            '4xl': '2560px',
+            '5xl': '3840px',
+        },
         container: {
             center: true,
             padding: '2rem',
@@ -22,6 +39,7 @@ export default {
                 '2xl': '1400px',
                 '3xl': '1920px',
                 '4xl': '2560px',
+                '5xl': '3840px',
             }
         },
         extend: {

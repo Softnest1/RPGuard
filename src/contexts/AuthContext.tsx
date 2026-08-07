@@ -23,6 +23,7 @@ interface AuthContextType {
   signOut:                 () => Promise<void>;
   refreshProfile:          () => Promise<void>;
   reauthAndUpdatePassword: (currentPassword: string, newPassword: string) => Promise<{ error: Error | null }>;
+  deleteAccount:           (password: string) => Promise<{ error: Error | null }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -189,6 +190,46 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // ── Suppression de compte ──────────────────────────────────────────────
+
+  const deleteAccount = async (password: string): Promise<{ error: Error | null }> => {
+    try {
+      const token = session?.access_token;
+      if (!token) return { error: new Error('Utilisateur non connecté.') };
+
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/delete-account`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+            apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+          },
+          body: JSON.stringify({ password }),
+        },
+      );
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        return { error: new Error(data.error ?? 'Erreur lors de la suppression du compte.') };
+      }
+
+      // Déconnexion locale immédiate après suppression réussie
+      if (!cancelledRef.current) {
+        setSession(null);
+        setProfile(null);
+      }
+      // Nettoyer la session Supabase côté client (best-effort)
+      try { await supabase.auth.signOut({ scope: 'local' }); } catch { /* ignoré */ }
+
+      return { error: null };
+    } catch (err) {
+      return { error: err as Error };
+    }
+  };
+
   // ── Changement de mot de passe avec re-auth ────────────────────────────
 
   const reauthAndUpdatePassword = async (currentPassword: string, newPassword: string) => {
@@ -214,7 +255,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     <AuthContext.Provider value={{
       user, session, profile, loading,
       signInWithUsername, signUpWithUsername, signOut, refreshProfile,
-      reauthAndUpdatePassword,
+      reauthAndUpdatePassword, deleteAccount,
     }}>
       {children}
     </AuthContext.Provider>

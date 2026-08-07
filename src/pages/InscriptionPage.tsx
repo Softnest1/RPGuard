@@ -14,6 +14,7 @@ import { toast } from 'sonner';
 import PageMeta from '@/components/common/PageMeta';
 import { getPasswordStrength, compressImage } from '@/lib/utils';
 import { supabase } from '@/db/supabase';
+import { fetchStatsQuick, isUsernameAvailable } from '@/lib/api';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -43,11 +44,9 @@ const STEPS = [
   { id: 3, icon: FileCheck, title: 'Votre Profil',        subtitle: 'Personnalisez votre apparence publique' },
 ];
 
-// Statistiques affichées dans le panneau latéral
-const SIDE_STATS = [
-  { icon: Users,   val: '2 800+', lbl: 'Membres inscrits'      },
-  { icon: Swords,  val: '1 400+', lbl: 'Plaintes déposées'     },
-  { icon: Zap,     val: '98 %',   lbl: 'Taux de satisfaction'  },
+// Statistiques affichées dans le panneau latéral — chargées depuis Supabase
+const SIDE_STATS_STATIC = [
+  { icon: Zap, val: null, lbl: 'Gratuit & anonyme', staticVal: '100 %' },
 ];
 
 // Règles de validation mot de passe affichées en temps réel
@@ -86,6 +85,12 @@ export default function InscriptionPage() {
 
   const [animDir,        setAnimDir]        = useState<'fwd' | 'bck'>('fwd');
   const [animating,      setAnimating]      = useState(false);
+
+  // Stats réelles depuis Supabase
+  const [liveStats, setLiveStats] = useState<{ users: number; total: number } | null>(null);
+  useEffect(() => {
+    fetchStatsQuick().then((s) => setLiveStats({ users: s.users, total: s.total })).catch(() => {});
+  }, []);
 
   // Refs pour auto-focus
   const usernameRef = useRef<HTMLInputElement>(null);
@@ -148,6 +153,19 @@ export default function InscriptionPage() {
       setStep((s) => (dir === 'fwd' ? s + 1 : s - 1));
       setAnimating(false);
     }, 180);
+  };
+
+  // ── Passage étape 0 → 1 : vérification disponibilité pseudo ──────────────
+  const handleStep0Next = async () => {
+    if (!canNext() || loading) return;
+    setLoading(true);
+    const available = await isUsernameAvailable(username.trim());
+    setLoading(false);
+    if (!available) {
+      toast.error('Ce pseudo est déjà pris. Choisissez-en un autre.');
+      return;
+    }
+    navigate_step('fwd');
   };
 
   // ── Soumission Supabase Auth ───────────────────────────────────────────────
@@ -331,14 +349,18 @@ export default function InscriptionPage() {
             })}
           </nav>
 
-          {/* Stats communauté */}
+          {/* Stats communauté — données réelles */}
           <div className="border-t border-white/8 pt-8">
             <div className="flex items-center gap-2 mb-5">
               <Gamepad2 className="w-3.5 h-3.5 text-white/30" />
               <span className="text-[11px] uppercase tracking-widest text-white/30 font-semibold">Communauté</span>
             </div>
             <div className="flex flex-col gap-4">
-              {SIDE_STATS.map(({ icon: Icon, val, lbl }) => (
+              {[
+                { icon: Users,  val: liveStats ? `${liveStats.users}` : '—', lbl: 'Membres inscrits'  },
+                { icon: Swords, val: liveStats ? `${liveStats.total}` : '—', lbl: 'Plaintes déposées' },
+                { icon: Zap,    val: '100 %',                                  lbl: 'Gratuit & anonyme' },
+              ].map(({ icon: Icon, val, lbl }) => (
                 <div key={lbl} className="flex items-center gap-3">
                   <Icon className="w-3.5 h-3.5 text-white/30 shrink-0" />
                   <span className="text-sm font-semibold text-white/75 tabular-nums w-14 shrink-0">{val}</span>
@@ -705,12 +727,21 @@ export default function InscriptionPage() {
             {step < STEPS.length - 1 ? (
               <Button
                 type="button"
-                onClick={() => navigate_step('fwd')}
-                disabled={!canNext()}
+                onClick={step === 0 ? handleStep0Next : () => navigate_step('fwd')}
+                disabled={!canNext() || loading}
                 className="flex-1 gap-1.5 rounded-xl h-11 font-semibold"
               >
-                Continuer
-                <ChevronRight className="w-4 h-4" />
+                {loading && step === 0 ? (
+                  <>
+                    <span className="w-4 h-4 rounded-full border-2 border-primary-foreground/30 border-t-primary-foreground animate-spin" aria-hidden="true" />
+                    Vérification…
+                  </>
+                ) : (
+                  <>
+                    Continuer
+                    <ChevronRight className="w-4 h-4" />
+                  </>
+                )}
               </Button>
             ) : (
               <Button

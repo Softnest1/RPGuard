@@ -5,7 +5,7 @@ import {
   ChevronDown, ChevronUp, ShieldCheck, Clock,
   Image as ImageIcon, MessageCircle, ThumbsUp, ThumbsDown,
   FileX, ExternalLink, Globe, Users, Play, CalendarDays,
-  FileText, User,
+  FileText, User, Gamepad2, BadgeCheck,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import type { Plainte, Preuve } from '@/types/types';
@@ -121,6 +121,18 @@ function PlainteRecapInner({ plainte }: PlainteRecapProps) {
                 <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium bg-primary/10 text-primary">
                   <ShieldCheck className="w-3 h-3" />
                   Preuves
+                </span>
+              )}
+              {plainte.is_compliant && (
+                <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium bg-green-50 text-green-700 border border-green-200 dark:bg-green-950/30 dark:text-green-400 dark:border-green-900/40">
+                  <BadgeCheck className="w-3 h-3" />
+                  Conforme
+                </span>
+              )}
+              {plainte.game_type && (
+                <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium bg-muted text-muted-foreground border border-border">
+                  <Gamepad2 className="w-3 h-3" />
+                  {plainte.game_type}
                 </span>
               )}
               {/* Badge visibilité publique */}
@@ -321,7 +333,30 @@ function PlainteRecapInner({ plainte }: PlainteRecapProps) {
               </div>
             </Section>
 
-            {/* 8. Accès public */}
+            {/* 8. Décision de modération */}
+            {(plainte.admin_note || plainte.cited_article) && (
+              <Section icon={<ShieldCheck className="w-3.5 h-3.5" />} title="Décision de modération">
+                {plainte.cited_article && (
+                  <div className="flex items-start gap-2 p-3 rounded-xl border border-primary/15 bg-primary/5">
+                    <BadgeCheck className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" />
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold text-primary mb-0.5">Article cité par la modération</p>
+                      <p className="text-xs text-muted-foreground">{plainte.cited_article}</p>
+                    </div>
+                  </div>
+                )}
+                {plainte.admin_note && (
+                  <div className="mt-1">
+                    <p className="text-xs text-muted-foreground mb-1">Note de la modération</p>
+                    <p className="text-sm text-foreground leading-relaxed bg-muted/40 rounded-xl px-4 py-3 whitespace-pre-wrap">
+                      {plainte.admin_note}
+                    </p>
+                  </div>
+                )}
+              </Section>
+            )}
+
+            {/* 9. Accès public */}
             <div className="px-4 py-3 flex items-center justify-between gap-3">
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <Globe className="w-3.5 h-3.5 text-green-600 shrink-0" />

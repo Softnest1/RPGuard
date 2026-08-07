@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import {
   Video, CheckCircle2, FileText, CalendarDays,
   Users, TrendingUp, ShieldCheck, AlertTriangle, ArrowRight,
-  ArrowLeft, Star, Quote, Swords, MessageCircle, Clock,
+  ArrowLeft, Star, Quote, Swords, MessageCircle, Clock, Gamepad2, Monitor,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import PageMeta from '@/components/common/PageMeta';
@@ -80,32 +80,9 @@ const MISTAKES = [
   { title: 'Plainte doublée', desc: 'Déposer plusieurs plaintes identiques diminue votre crédibilité.' },
 ];
 
-const GAMES = [
-  {
-    name: 'GTA RP / FiveM',
-    tips: [
-      'Activez le HUD avec le nom du joueur visible en vidéo',
-      'Enregistrez depuis le panneau admin si vous y avez accès',
-      'Les logs F8 (console) peuvent compléter les preuves',
-    ],
-  },
-  {
-    name: 'OneState RP',
-    tips: [
-      'Utilisez l\'enregistrement in-game intégré',
-      'Le profil admin visible en interface = preuve identité',
-      'Les sanctions injustifiées se contestent via les logs de jeu',
-    ],
-  },
-  {
-    name: 'RedM / Red Dead RP',
-    tips: [
-      'Préférez les vidéos aux screenshots pour les conflits de whitelist',
-      'Notez le timestamp exact de l\'incident dans vos preuves',
-      'Les discussions vocales ne sont pas des preuves sans enregistrement',
-    ],
-  },
-];
+// Jeux RP — depuis la source unique de vérité
+import { GAMES_RP } from '@/lib/games';
+const GAMES = GAMES_RP.map((g) => ({ name: g.label, engine: g.engine, platforms: g.platforms, desc: g.desc, tips: g.tips, status: g.status }));
 
 const CHECKLIST = [
   'Pseudo exact vérifié (copier-coller)',
@@ -288,23 +265,58 @@ export default function GuidePage() {
         {/* ── Par jeu ── */}
         <div className="mb-14 border-t border-border pt-12">
           <div className="flex items-center gap-2 mb-2">
-            <ShieldCheck className="w-4 h-4 text-primary" />
+            <Gamepad2 className="w-4 h-4 text-primary" />
             <h2 className="text-lg font-semibold text-foreground">Conseils par jeu</h2>
           </div>
-          <p className="text-sm text-muted-foreground mb-6">Chaque jeu a ses spécificités. Adaptez votre dossier au contexte.</p>
+          <p className="text-sm text-muted-foreground mb-6">
+            Chaque jeu a ses spécificités. Sélectionnez votre jeu ci-dessous pour adapter votre dossier.
+          </p>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {GAMES.map(({ name, tips }) => (
-              <div key={name} className="p-4 rounded-xl border border-border bg-card">
-                <h3 className="text-sm font-semibold text-foreground mb-3">{name}</h3>
-                <ul className="flex flex-col gap-2">
-                  {tips.map((tip) => (
-                    <li key={tip} className="flex items-start gap-2 text-xs text-muted-foreground">
-                      <span className="w-1 h-1 rounded-full bg-primary/50 shrink-0 mt-1.5" />
-                      {tip}
-                    </li>
-                  ))}
-                </ul>
+          <div className="flex flex-col gap-4">
+            {GAMES.map(({ name, engine, platforms, desc, tips, status }) => (
+              <div key={name} className="rounded-xl border border-border bg-card overflow-hidden">
+                {/* En-tête jeu */}
+                <div className="px-4 py-3 flex flex-wrap items-center gap-2 border-b border-border">
+                  <h3 className="text-sm font-semibold text-foreground flex-1 min-w-0">{name}</h3>
+                  <span className={`text-xs font-medium px-2 py-0.5 rounded-full border shrink-0 ${
+                    status === 'actif'    ? 'bg-green-50 text-green-700 border-green-200 dark:bg-green-950/30 dark:text-green-400 dark:border-green-900/40'
+                    : status === 'émergent' ? 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/30 dark:text-purple-400 dark:border-purple-900/40'
+                    : 'bg-muted text-muted-foreground border-border'
+                  }`}>
+                    {status === 'actif' ? '● Actif' : status === 'émergent' ? '✦ Émergent' : '○ Stable'}
+                  </span>
+                </div>
+
+                {/* Corps */}
+                <div className="px-4 py-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* Infos */}
+                  <div className="md:col-span-1 flex flex-col gap-2">
+                    <p className="text-xs text-muted-foreground leading-relaxed">{desc}</p>
+                    <div className="flex flex-col gap-1 mt-1">
+                      <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <Monitor className="w-3 h-3 shrink-0" />
+                        {engine}
+                      </span>
+                      <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <Gamepad2 className="w-3 h-3 shrink-0" />
+                        {platforms.join(' · ')}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Conseils preuves */}
+                  <div className="md:col-span-2">
+                    <p className="text-xs font-semibold text-foreground uppercase tracking-wider mb-2">Conseils preuves</p>
+                    <ul className="flex flex-col gap-2">
+                      {tips.map((tip) => (
+                        <li key={tip} className="flex items-start gap-2 text-xs text-muted-foreground">
+                          <span className="w-1 h-1 rounded-full bg-primary/50 shrink-0 mt-1.5" />
+                          {tip}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
               </div>
             ))}
           </div>

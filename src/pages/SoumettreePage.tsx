@@ -16,13 +16,14 @@ import {
   ShieldCheck, Upload, X, CheckCircle2, Lock, Plus,
   User, Server, FileText, Image as ImageIcon, ClipboardList,
   Trash2, Play, AlertTriangle, Star, Save, Link2, ExternalLink,
+  BookOpen,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { fetchCategories, createPlainte, uploadPreuve, addPreuveLien, createAccuse } from '@/lib/api';
 import type { Category } from '@/types/types';
 import { toast } from 'sonner';
-import { computeDossierScore, DossierScoreWidget } from '@/lib/dossierScore.tsx';
-import type { DossierScoreInput } from '@/lib/dossierScore.tsx';
+import { computeDossierScore, DossierScoreWidget } from '@/components/common/DossierScore';
+import type { DossierScoreInput } from '@/components/common/DossierScore';
 
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { DRAFT_KEYS } from '@/lib/drafts';
@@ -44,6 +45,83 @@ interface MediaFile {
   type: 'image' | 'video';
 }
 
+// ── Mapping catégorie DB → article applicable + groupe règlement ──────────────
+// Catégories DB après migration : Abus de pouvoir, Bannissement injuste,
+// Harcèlement, Manque de transparence, Non-respect du règlement, Triche / Favoritisme
+const CATEGORY_TO_ARTICLE: Record<string, { num: string; title: string; summary: string; group: string }> = {
+  'Abus de pouvoir': {
+    num: '04', group: 'Dépôt & Preuves',
+    title: 'Dépôt d\'un dossier',
+    summary: 'Votre dossier doit contenir le nom du serveur, l\'admin mis en cause et une description factuelle de l\'abus. Les dossiers avec preuves solides reçoivent le badge "Preuves vérifiées".',
+  },
+  'Bannissement injuste': {
+    num: '05', group: 'Éthique & Conduite',
+    title: 'Véracité et bonne foi',
+    summary: 'Un bannissement doit être clairement démontré comme arbitraire. Fournissez des preuves que la sanction était injustifiée — logs, captures ou témoignages corroborant l\'absence de faute.',
+  },
+  'Harcèlement': {
+    num: '06', group: 'Éthique & Conduite',
+    title: 'Respect et civilité',
+    summary: 'Tout comportement harcelant, intimidant ou discriminatoire exercé via les outils de modération est documentable. Chaque preuve (capture, vidéo) renforce la crédibilité de votre dossier.',
+  },
+  'Manque de transparence': {
+    num: '10', group: 'Modération',
+    title: 'Traitement des dossiers',
+    summary: 'Un admin doit motiver ses décisions. Le manque de communication ou les décisions opaques sans justification constituent une violation du standard de modération attendu.',
+  },
+  'Non-respect du règlement': {
+    num: '04', group: 'Dépôt & Preuves',
+    title: 'Dépôt d\'un dossier',
+    summary: 'Citez précisément quelle règle du serveur a été violée par l\'admin, avec les preuves correspondantes. Un dossier factuel et documenté a un impact maximal auprès de la communauté.',
+  },
+  'Triche / Favoritisme': {
+    num: '08', group: 'Modération',
+    title: 'Votes — règles et anti-manipulation',
+    summary: 'Le favoritisme ou la triche par un admin fausse la communauté. Documentez les écarts de traitement avec preuves concrètes — comparaison de sanctions, captures de décisions inégales.',
+  },
+};
+// Clé par défaut si aucun match
+const DEFAULT_ARTICLE = {
+  num: '04', group: 'Dépôt & Preuves',
+  title: 'Dépôt d\'un dossier',
+  summary: 'Votre dossier doit contenir les informations précises de l\'incident : serveur, nom de l\'admin mis en cause, description factuelle et, idéalement, des preuves.',
+};
+
+// Couleurs des groupes règlement (cohérentes avec ReglementPage)
+const GROUP_COLORS: Record<string, string> = {
+  'Dépôt & Preuves':    'text-blue-700 bg-blue-50 border-blue-200 dark:text-blue-400 dark:bg-blue-950/20 dark:border-blue-800/40',
+  'Éthique & Conduite': 'text-amber-700 bg-amber-50 border-amber-200 dark:text-amber-400 dark:bg-amber-950/20 dark:border-amber-800/40',
+  'Modération':         'text-violet-700 bg-violet-50 border-violet-200 dark:text-violet-400 dark:bg-violet-950/20 dark:border-violet-800/40',
+  'Sanctions & Légal':  'text-destructive bg-destructive/8 border-destructive/20',
+  'Règles de base':     'text-primary bg-primary/8 border-primary/20',
+};
+
+// Types de jeux RP — importés depuis la source unique de vérité
+import { GAMES_RP } from '@/lib/games';
+const GAME_TYPES = GAMES_RP.map((g) => g.id) as string[];
+
+// ── Checklist items ───────────────────────────────────────────────────────────
+const COMPLIANCE_ITEMS = [
+  {
+    id: 'art04',
+    article: '04',
+    label: 'J\'ai lu et respecte l\'Article 04 — Dépôt d\'un dossier',
+    hint: 'Mon dossier contient le nom du serveur, de l\'admin mis en cause et une description factuelle.',
+  },
+  {
+    id: 'art05',
+    article: '05',
+    label: 'Je certifie que ma plainte est véridique conformément à l\'Article 05 — Véracité et bonne foi',
+    hint: 'Je dépose uniquement des faits réels et vérifiables. Une fausse déclaration entraîne des sanctions.',
+  },
+  {
+    id: 'art07',
+    article: '07',
+    label: 'Je fournis des preuves tangibles conformément à l\'Article 07 — Preuves et authenticité',
+    hint: 'Mes captures d\'écran, vidéos ou logs ne sont pas modifiés et attestent des faits allégués.',
+  },
+] as const;
+
 // ── Définition des étapes ────────────────────────────────────────────────────
 const STEPS = [
   { label: 'Jeu & Serveur',   icon: Server },
@@ -51,6 +129,7 @@ const STEPS = [
   { label: 'Mis en cause',    icon: ShieldCheck },
   { label: 'Les faits',       icon: FileText },
   { label: 'Preuves',         icon: ImageIcon },
+  { label: 'Conformité',      icon: ClipboardList },
 ] as const;
 
 // ── Limites ──────────────────────────────────────────────────────────────────
@@ -69,6 +148,8 @@ export default function SoumettreePage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading]   = useState(false);
   const [uploadStatus, setUploadStatus] = useState('');
+  // Garde anti-double-soumission : useRef non lié au cycle de rendu
+  const submittingRef = useRef(false);
   
   // Utilitaire pour nettoyer tout le localStorage lié à cette page
   const clearDraft = () => {
@@ -77,6 +158,8 @@ export default function SoumettreePage() {
     removeServerEmail(); removeServerTopserveurLink(); removeAccusedDiscordTag();
     removeDescription(); removeContexte(); removeDemarchePrealable();
     setLegalConsent(false);
+    setComplianceChecks({ art04: false, art05: false, art07: false });
+    removeGameType();
   };
 
   // Étape 1 — Jeu & Serveur
@@ -115,6 +198,14 @@ export default function SoumettreePage() {
   // Consentement légal
   const [legalConsent, setLegalConsent] = useState(false);
 
+  // Type de jeu RP (stocké séparément de la catégorie d'abus)
+  const [gameType, setGameType, removeGameType] = useLocalStorage('rpguard_draft_gameType', '');
+
+  // Étape 6 — Checklist conformité règlement
+  const [complianceChecks, setComplianceChecks] = useState<Record<string, boolean>>({
+    art04: false, art05: false, art07: false,
+  });
+  const allChecked = Object.values(complianceChecks).every(Boolean);
   useEffect(() => {
     fetchCategories().then(setCategories).catch(() => {});
   }, []);
@@ -132,10 +223,10 @@ export default function SoumettreePage() {
       case 2: return accuses.length > 0 && accuses.every((a) => a.pseudo_rp.trim().length >= 2);
       case 3: return description.trim().length >= 30;
       case 4: return legalConsent;
+      case 5: return allChecked;
       default: return false;
     }
   };
-
   // ── Gestion des accusés ───────────────────────────────────────────────────
   const addAccuse = () => {
     if (accuses.length >= 5) { toast.error('Maximum 5 personnes mises en cause.'); return; }
@@ -209,6 +300,9 @@ export default function SoumettreePage() {
       toast.error('Vous devez être connecté.');
       return;
     }
+    // Garde anti-double-soumission : bloque toute re-entrée même avant le re-rendu React
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     setLoading(true);
     try {
       // Créer la plainte principale
@@ -229,8 +323,9 @@ export default function SoumettreePage() {
         server_email:   serverEmail.trim() || undefined,
         server_topserveur_link: serverTopserveurLink.trim() || undefined,
         accused_discord_tag: accusedDiscordTag.trim() || undefined,
-      } as any); // Force any to bypass the type error since we just updated api.ts but typescript is caching
-
+        is_compliant:   allChecked,
+        game_type:      gameType || undefined,
+      });
       // Créer les accusés
       for (const acc of accuses) {
         await createAccuse(plainteId, acc.pseudo_rp.trim(), acc.role);
@@ -272,6 +367,7 @@ export default function SoumettreePage() {
       const msg = err instanceof Error ? err.message : 'Erreur lors du dépôt.';
       toast.error(msg || 'Erreur lors du dépôt. Veuillez réessayer.');
     } finally {
+      submittingRef.current = false;
       setLoading(false);
       setUploadStatus('');
     }
@@ -369,21 +465,87 @@ export default function SoumettreePage() {
           {/* ── Étape 1 : Jeu & Serveur ────────────────────── */}
           {step === 0 && (
             <div className="flex flex-col gap-5">
+
+              {/* Sélecteur type de jeu RP */}
+              <div className="flex flex-col gap-2">
+                <Label className="text-sm font-medium">
+                  Type de jeu RP
+                  <span className="ml-1 text-xs font-normal text-muted-foreground">(optionnel)</span>
+                </Label>
+                <div className="flex flex-wrap gap-2">
+                  {GAME_TYPES.map((g) => (
+                    <button
+                      key={g}
+                      type="button"
+                      onClick={() => setGameType(gameType === g ? '' : g)}
+                      className={`text-xs font-medium px-3 py-1.5 rounded-full border transition-all ${
+                        gameType === g
+                          ? 'bg-foreground text-background border-foreground'
+                          : 'border-border text-muted-foreground bg-background hover:border-primary/40 hover:text-foreground'
+                      }`}
+                    >
+                      {g}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Sélecteur type d'abus — aligné sur les 5 groupes règlement */}
               <div className="flex flex-col gap-2">
                 <Label htmlFor="category" className="text-sm font-medium">
                   Type d'abus <span className="text-destructive">*</span>
                 </Label>
                 <Select value={categoryId} onValueChange={setCategoryId}>
                   <SelectTrigger id="category">
-                    <SelectValue placeholder="Choisir une catégorie" />
+                    <SelectValue placeholder="Choisir le type d'abus" />
                   </SelectTrigger>
                   <SelectContent>
-                    {categories.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                    ))}
+                    {categories.map((c) => {
+                      const art = CATEGORY_TO_ARTICLE[c.name];
+                      return (
+                        <SelectItem key={c.id} value={c.id}>
+                          <span className="flex items-center gap-2">
+                            {c.name}
+                            {art && (
+                              <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full border ${GROUP_COLORS[art.group] ?? ''}`}>
+                                {art.group}
+                              </span>
+                            )}
+                          </span>
+                        </SelectItem>
+                      );
+                    })}
                   </SelectContent>
                 </Select>
               </div>
+
+              {/* Encart article applicable selon la catégorie choisie */}
+              {categoryId && (() => {
+                const cat = categories.find((c) => c.id === categoryId);
+                const art = (cat && CATEGORY_TO_ARTICLE[cat.name]) ?? DEFAULT_ARTICLE;
+                const groupColor = GROUP_COLORS[art.group] ?? 'text-primary bg-primary/8 border-primary/20';
+                return (
+                  <div className={`flex items-start gap-3 p-4 rounded-xl border ${groupColor}`}>
+                    <BookOpen className="w-4 h-4 shrink-0 mt-0.5" />
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-[10px] font-semibold uppercase tracking-wide opacity-70">{art.group}</span>
+                      </div>
+                      <p className="text-xs font-semibold mb-0.5">
+                        Article {art.num} — {art.title}
+                      </p>
+                      <p className="text-xs opacity-80 leading-relaxed">{art.summary}</p>
+                      <Link
+                        to="/reglement"
+                        target="_blank"
+                        className="inline-flex items-center gap-1 text-xs hover:underline mt-1.5 font-medium opacity-90"
+                      >
+                        Lire l'article complet <ExternalLink className="w-3 h-3" />
+                      </Link>
+                    </div>
+                  </div>
+                );
+              })()}
 
               <div className="flex flex-col gap-2">
                 <Label htmlFor="server" className="text-sm font-medium">
@@ -391,7 +553,7 @@ export default function SoumettreePage() {
                 </Label>
                 <Input
                   id="server"
-                  placeholder="ex : NoPixel, ONESTATE RP, FiveM City RP…"
+                  placeholder="ex : NoPixel FR, ONESTATE Officiel, FiveM City, RedM Frontier…"
                   value={gameServerName}
                   onChange={(e) => setGameServerName(e.target.value)}
                   maxLength={120}
@@ -889,6 +1051,89 @@ export default function SoumettreePage() {
                   </Label>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* ── Étape 6 : Conformité au règlement ─────────── */}
+          {step === 5 && (
+            <div className="flex flex-col gap-6">
+              {/* En-tête explicatif */}
+              <div className="flex items-start gap-3 p-4 rounded-xl border border-primary/15 bg-primary/5">
+                <BookOpen className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-semibold text-foreground mb-1">Vérification de conformité</p>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    Avant de publier, confirmez que votre dossier respecte les articles fondamentaux du règlement RPGuard.
+                    Cette étape est <span className="font-semibold text-foreground">obligatoire</span> — elle permet d'obtenir
+                    le badge <span className="text-green-700 dark:text-green-400 font-semibold">Conforme au règlement</span> sur votre dossier.
+                  </p>
+                </div>
+              </div>
+
+              {/* Les 3 cases de conformité */}
+              <div className="flex flex-col gap-3">
+                {COMPLIANCE_ITEMS.map((item) => (
+                  <label
+                    key={item.id}
+                    htmlFor={`compliance-${item.id}`}
+                    className={`flex items-start gap-3 p-4 rounded-xl border cursor-pointer transition-all ${
+                      complianceChecks[item.id]
+                        ? 'border-green-300 bg-green-50/60 dark:border-green-800/40 dark:bg-green-950/15'
+                        : 'border-border bg-card hover:border-primary/30 hover:bg-primary/5'
+                    }`}
+                  >
+                    <div className="mt-0.5 shrink-0">
+                      <input
+                        id={`compliance-${item.id}`}
+                        type="checkbox"
+                        checked={complianceChecks[item.id]}
+                        onChange={(e) =>
+                          setComplianceChecks((prev) => ({ ...prev, [item.id]: e.target.checked }))
+                        }
+                        className="w-4 h-4 rounded border-border text-primary focus:ring-primary"
+                      />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-foreground leading-snug">{item.label}</p>
+                      <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{item.hint}</p>
+                      <Link
+                        to="/reglement"
+                        target="_blank"
+                        onClick={(e) => e.stopPropagation()}
+                        className="inline-flex items-center gap-1 text-xs text-primary hover:underline mt-1.5 font-medium"
+                      >
+                        Article {item.article} — Lire <ExternalLink className="w-3 h-3" />
+                      </Link>
+                    </div>
+                    {complianceChecks[item.id] && (
+                      <CheckCircle2 className="w-4 h-4 text-green-600 dark:text-green-400 shrink-0 mt-0.5" />
+                    )}
+                  </label>
+                ))}
+              </div>
+
+              {/* Indicateur global */}
+              <div className={`flex items-center gap-3 p-3.5 rounded-xl border transition-all ${
+                allChecked
+                  ? 'border-green-300 bg-green-50/60 dark:border-green-800/40 dark:bg-green-950/15'
+                  : 'border-border bg-muted/20'
+              }`}>
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                  allChecked ? 'bg-green-100 dark:bg-green-900/30' : 'bg-muted'
+                }`}>
+                  <ShieldCheck className={`w-4 h-4 ${allChecked ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'}`} />
+                </div>
+                <div className="min-w-0">
+                  <p className={`text-sm font-semibold ${allChecked ? 'text-green-700 dark:text-green-400' : 'text-muted-foreground'}`}>
+                    {allChecked ? 'Dossier conforme au règlement RPGuard' : `${Object.values(complianceChecks).filter(Boolean).length}/3 articles validés`}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {allChecked
+                      ? 'Votre dossier recevra le badge vert "Conforme au règlement" visible par la communauté.'
+                      : 'Cochez les 3 cases pour débloquer le bouton de publication.'}
+                  </p>
+                </div>
+              </div>
 
               {/* Progression upload */}
               {uploadStatus && (
@@ -903,7 +1148,7 @@ export default function SoumettreePage() {
       </div>
 
       {/* ── Navigation (Sticky sur mobile) ── */}
-      <div className="flex items-center justify-between gap-3 sticky bottom-0 bg-background/80 backdrop-blur-md p-4 border-t border-border -mx-4 md:static md:bg-transparent md:backdrop-blur-none md:p-0 md:border-t-0 md:mx-0 z-40 pb-safe">
+      <div className="flex items-center justify-between gap-3 sticky bottom-0 bg-background/95 backdrop-blur-sm p-4 border-t border-border -mx-4 md:static md:bg-transparent md:backdrop-blur-none md:p-0 md:border-t-0 md:mx-0 z-40 pb-safe">
         <Button
           variant="outline"
           onClick={() => setStep((s) => s - 1)}

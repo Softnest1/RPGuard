@@ -1,8 +1,14 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,300 +17,588 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import {
-  Shield, Menu, LogOut, LayoutDashboard, FilePlus, UserCircle2,
-  ArrowRight, X, MessageSquare, ShieldAlert, BookOpen, FileText, Server, Activity
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import {
+  LogOut, LayoutDashboard, FilePlus, UserCircle2,
+  MessageSquare, ShieldAlert, BookOpen, FileText, Server,
+  FolderOpen, ChevronRight, ArrowUpRight,
+  BarChart3, ShieldOff, Megaphone, Menu, X,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
-// ── NAVIGATION STRATÉGIQUE (ZÉRO DOUBLON) ───────────────────────────────────
-const VISITOR_LINKS = [
-  { href: '/plaintes', label: 'Plaintes', icon: FileText },
-  { href: '/serveurs', label: 'Classement', icon: Server },
-  { href: '/statistiques', label: 'Statistiques', icon: Activity },
-  { href: '/label-confiance', label: 'Label Confiance', icon: Shield },
-  { href: '/guide', label: 'Guide RP', icon: BookOpen },
+// ── Navigation — 6 liens publics, priorité visiteur ──────────────────────
+// Ordre stratégique : action principale → exploration → légal/info
+const NAV_LINKS = [
+  { href: '/plaintes',     label: 'Plaintes',    icon: FileText,  num: '01' },
+  { href: '/serveurs',     label: 'Serveurs',    icon: Server,    num: '02' },
+  { href: '/guide',        label: 'Guide',       icon: BookOpen,  num: '03' },
+  { href: '/statistiques', label: 'Stats',       icon: BarChart3, num: '04' },
+  { href: '/arsenal',      label: 'Bouclier',    icon: ShieldOff, num: '05' },
+  { href: '/resistance',   label: 'Résistance',  icon: Megaphone, num: '06' },
 ];
 
-const USER_LINKS = [
-  { href: '/plaintes', label: 'Plaintes', icon: FileText },
-  { href: '/serveurs', label: 'Classement', icon: Server },
-  { href: '/arsenal', label: 'Bouclier Joueur', icon: ShieldAlert },
-  { href: '/label-confiance', label: 'Label Confiance', icon: Shield },
-  { href: '/actualites', label: 'Actualités', icon: Activity },
+// ── Liens espace membre ───────────────────────────────────────────────────
+const MEMBER_LINKS = [
+  { to: '/tableau-de-bord',            icon: LayoutDashboard, label: 'Mon espace'       },
+  { to: '/messages',                   icon: MessageSquare,   label: 'Messagerie'       },
+  { to: '/mes-dossiers',               icon: FolderOpen,      label: 'Mes dossiers PDF' },
+  { to: '/tableau-de-bord?tab=profil', icon: UserCircle2,     label: 'Profil public'    },
 ];
 
 function getInitials(username?: string | null): string {
-  return username ? username.slice(0, 2).toUpperCase() : '?';
+  return username ? username.slice(0, 2).toUpperCase() : '??';
 }
 
+// ── Logo signature — RP|Guard avec trait vertical animé ──────────────────
 function Logo({ onClick }: { onClick?: () => void }) {
   return (
-    <Link to="/" className="flex items-center shrink-0 group" onClick={onClick}>
-      <span className="font-extrabold text-[22px] md:text-[24px] 2xl:text-[28px] tracking-tighter text-foreground leading-none">
-        RP<span className="opacity-50 font-medium">Guard</span>
+    <Link to="/" onClick={onClick} aria-label="RPGuard — Accueil"
+      className="shrink-0 select-none group">
+      <span className="font-extrabold tracking-tighter text-foreground leading-none
+                       inline-flex items-baseline gap-0
+                       text-[20px] md:text-[21px] lg:text-[22px] xl:text-[23px]
+                       2xl:text-[25px] 3xl:text-[28px] 4xl:text-[32px] 5xl:text-[38px]">
+        <span className="relative">
+          RP
+          <span
+            aria-hidden
+            className="absolute -right-[3px] top-[0.05em] bottom-[0.05em] w-[2px] rounded-full"
+            style={{ background: 'hsl(var(--sig))', animation: 'rp-cursor 1.4s ease-in-out infinite' }}
+          />
+        </span>
+        <span className="font-light opacity-50 tracking-normal ml-[5px] md:ml-[6px]">Guard</span>
       </span>
     </Link>
   );
 }
 
+// ── Nav Desktop adaptatif ─────────────────────────────────────────────────
+// md–lg (tablette) : icônes seules + tooltip au survol
+// lg+  (laptop+)   : icône + label visible
+// 2xl+ (FHD+)      : taille augmentée progressivement
+// 4K+  (TV/cinéma) : très grand, confortable à distance
+function FlatNav({ isActive }: { isActive: (href: string) => boolean }) {
+  return (
+    <TooltipProvider delayDuration={300}>
+      <nav aria-label="Navigation principale"
+        className="relative hidden md:flex items-center gap-0 h-full
+                   overflow-x-auto overflow-y-hidden scrollbar-none">
+        {NAV_LINKS.map(link => {
+          const active = isActive(link.href);
+          const Icon = link.icon;
+
+          return (
+            <Tooltip key={link.href}>
+              <TooltipTrigger asChild>
+                <Link
+                  to={link.href}
+                  data-active={active ? 'true' : 'false'}
+                  className="relative flex items-center h-full shrink-0
+                             px-1 md:px-1 lg:px-1.5 xl:px-2 2xl:px-2.5 4xl:px-4"
+                >
+                  {active ? (
+                    /* ── ACTIF : pill pleine foreground ── */
+                    <span className="flex items-center rounded-md select-none
+                                     bg-foreground text-background
+                                     transition-all duration-200
+                                     gap-0 md:gap-0 lg:gap-1.5
+                                     px-2 md:px-2.5 lg:px-3 xl:px-3.5 2xl:px-4 4xl:px-5
+                                     py-[5px] md:py-[5px] lg:py-[6px] 2xl:py-[7px] 4xl:py-3
+                                     text-[12px] md:text-[12px] lg:text-[13px] xl:text-[13px]
+                                     2xl:text-[14px] 3xl:text-[15px] 4xl:text-[17px] 5xl:text-[20px]
+                                     font-semibold tracking-[0.01em] whitespace-nowrap">
+                      <Icon
+                        className="shrink-0
+                                   w-[14px] h-[14px] lg:w-[14px] lg:h-[14px]
+                                   2xl:w-[15px] 2xl:h-[15px] 4xl:w-[18px] 4xl:h-[18px]
+                                   5xl:w-[22px] 5xl:h-[22px]"
+                        style={{ color: 'hsl(var(--sig))' }}
+                      />
+                      {/* Label masqué sur tablette, visible à partir de lg */}
+                      <span className="hidden lg:inline ml-1.5 2xl:ml-2">
+                        {link.label}
+                      </span>
+                    </span>
+                  ) : (
+                    /* ── INACTIF : texte atténué + hover pill ── */
+                    <span className="group flex items-center rounded-md
+                                     text-foreground/50 hover:text-foreground
+                                     hover:bg-muted/70
+                                     transition-all duration-200
+                                     gap-0 md:gap-0 lg:gap-1.5
+                                     px-2 md:px-2.5 lg:px-3 xl:px-3.5 2xl:px-4 4xl:px-5
+                                     py-[5px] md:py-[5px] lg:py-[6px] 2xl:py-[7px] 4xl:py-3
+                                     text-[12px] md:text-[12px] lg:text-[13px] xl:text-[13px]
+                                     2xl:text-[14px] 3xl:text-[15px] 4xl:text-[17px] 5xl:text-[20px]
+                                     font-medium tracking-[0.01em] whitespace-nowrap">
+                      <Icon
+                        className="shrink-0 opacity-50 hover:opacity-100 transition-opacity duration-200
+                                   w-[14px] h-[14px] lg:w-[14px] lg:h-[14px]
+                                   2xl:w-[15px] 2xl:h-[15px] 4xl:w-[18px] 4xl:h-[18px]
+                                   5xl:w-[22px] 5xl:h-[22px]"
+                      />
+                      {/* Label masqué sur tablette, visible à partir de lg */}
+                      <span className="hidden lg:inline ml-1.5 2xl:ml-2">
+                        {link.label}
+                      </span>
+                    </span>
+                  )}
+                </Link>
+              </TooltipTrigger>
+              {/* Tooltip visible uniquement sur tablette (md/lg) où le label est masqué */}
+              <TooltipContent side="bottom" className="lg:hidden text-xs font-medium">
+                {link.label}
+              </TooltipContent>
+            </Tooltip>
+          );
+        })}
+      </nav>
+    </TooltipProvider>
+  );
+}
+
+// ── Header principal ──────────────────────────────────────────────────────
 export default function Header() {
   const { user, profile, signOut, loading } = useAuth();
-  const navigate = useNavigate();
-  const location = useLocation();
+  const navigate  = useNavigate();
+  const location  = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [lineReady,  setLineReady]  = useState(false);
 
-  // Fermer le menu si l'URL change
   useEffect(() => {
     setMobileOpen(false);
+    setLineReady(false);
+    const t = setTimeout(() => setLineReady(true), 80);
+    return () => clearTimeout(t);
   }, [location.pathname]);
 
-  const isActive = (href: string) => location.pathname === href || location.pathname.startsWith(href + '/');
+  const isActive = (href: string) =>
+    location.pathname === href ||
+    (href !== '/' && location.pathname.startsWith(href + '/'));
 
+  const close = () => setMobileOpen(false);
+
+  const signingOutRef = useRef(false);
   const handleSignOut = async () => {
-    await signOut();
-    setMobileOpen(false);
-    toast.success('Déconnecté avec succès');
-    navigate('/');
+    if (signingOutRef.current) return;
+    signingOutRef.current = true;
+    try {
+      await signOut();
+      close();
+      toast.success('Déconnecté avec succès');
+      navigate('/');
+    } finally {
+      signingOutRef.current = false;
+    }
   };
 
   return (
-    <header className="sticky top-0 z-50 w-full bg-background/90 backdrop-blur-xl border-b border-border/40">
-      {/* 
-        Le container fluide : 
-        S'étend très largement sur les écrans 4K/Cinéma (max-w-[2560px]) 
-        et gère son padding selon l'appareil.
-      */}
-      <div className="w-full max-w-[2560px] mx-auto px-4 sm:px-6 lg:px-8 2xl:px-16 min-[1920px]:px-24 h-16 md:h-20 2xl:h-24 flex items-center justify-between gap-4">
-        
-        {/* LOGO & NAVIGATION DESKTOP */}
-        <div className="flex items-center gap-6 lg:gap-10 2xl:gap-16">
-          <Logo />
+    <>
+      {/* Keyframes curseur logo */}
+      <style>{`
+        @keyframes rp-cursor {
+          0%, 100% { opacity: 1; }
+          50%       { opacity: 0; }
+        }
+      `}</style>
 
-          {!loading && (
-            <nav className="hidden lg:flex items-center gap-4 lg:gap-6 xl:gap-8 2xl:gap-12 animate-in fade-in">
-              {(user ? USER_LINKS : VISITOR_LINKS).map(link => (
-                <Link
-                  key={link.href}
-                  to={link.href}
-                  className={`text-[14px] xl:text-[15px] 2xl:text-[18px] font-medium transition-colors whitespace-nowrap ${
-                    isActive(link.href) 
-                      ? 'text-foreground' 
-                      : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  {link.label}
-                </Link>
-              ))}
-            </nav>
-          )}
-        </div>
+      {/* ══════════════════════════════════════════════════════════════════
+          HEADER SIGNATURE RPGuard — adaptatif tous écrans
+          < 768px   : hamburger menu
+          768–1023  : icônes nav seules + tooltips
+          1024–1535 : icônes + labels
+          1536–1919 : taille augmentée, padding élargi
+          1920–2559 : FHD/2K — très aéré
+          2560–3839 : QHD/4K cinéma
+          3840+     : 4K TV/automobile — max-w illimité, tailles XXL
+          ══════════════════════════════════════════════════════════════════ */}
+      {/* pageshow: force un repaint quand le navigateur restaure depuis le bfcache (retour arrière) */}
+      <header className="sticky top-0 z-50 w-full bg-background/95 backdrop-blur-md"
+        style={{ willChange: 'transform', transform: 'translateZ(0)' }}>
 
-        {/* ACTIONS DROITE DESKTOP (Visible à partir de lg / laptop) */}
-        <div className="hidden lg:flex shrink-0 items-center gap-2 lg:gap-3 2xl:gap-5">
-          {loading ? (
-            <div className="flex gap-2">
-              <Skeleton className="h-9 lg:h-10 2xl:h-12 w-20 lg:w-28 rounded-full" />
-              <Skeleton className="h-9 w-9 lg:h-10 lg:w-10 2xl:h-12 2xl:w-12 rounded-full" />
-            </div>
-          ) : user ? (
-            <div className="flex items-center gap-2 lg:gap-3 2xl:gap-5 animate-in fade-in">
-              <Button asChild size="sm" className="rounded-full h-9 lg:h-10 2xl:h-12 px-4 lg:px-5 2xl:px-8 text-[12px] lg:text-sm 2xl:text-base font-semibold shadow-none">
-                <Link to="/soumettre" className="flex items-center">
-                  <FilePlus className="w-4 h-4 md:mr-0 lg:mr-2 2xl:w-5 2xl:h-5" /> 
-                  <span className="hidden lg:inline">Déposer une plainte</span>
-                  <span className="hidden md:inline lg:hidden">Déposer</span>
-                </Link>
-              </Button>
+        {/* Ligne signature rouge */}
+        <div
+          aria-hidden
+          className="absolute bottom-0 left-0 right-0 h-[1.5px] origin-left"
+          style={{
+            background: `linear-gradient(90deg, hsl(var(--sig)) 0%, hsl(var(--sig)/0.3) 60%, transparent 100%)`,
+            transform:  lineReady ? 'scaleX(1)' : 'scaleX(0)',
+            transition: 'transform 0.6s cubic-bezier(.4,0,.2,1)',
+          }}
+        />
 
-              <DropdownMenu>
-                <DropdownMenuTrigger className="flex items-center justify-center w-9 h-9 lg:w-10 lg:h-10 2xl:w-12 2xl:h-12 rounded-full bg-muted border border-border/60 hover:bg-muted/80 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                  <span className="text-[12px] lg:text-sm 2xl:text-base font-bold text-foreground">
-                    {getInitials(profile?.username)}
-                  </span>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56 2xl:w-64 rounded-xl p-2 mt-1">
-                  <DropdownMenuLabel className="px-2 py-1.5 mb-1">
-                    <p className="text-sm 2xl:text-base font-semibold text-foreground truncate">@{profile?.username ?? 'Membre'}</p>
-                    <p className="text-xs 2xl:text-sm text-muted-foreground truncate">{profile?.role === 'admin' ? 'Administrateur' : 'Utilisateur'}</p>
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  
-                  <div className="flex flex-col gap-0.5">
-                    <DropdownMenuItem asChild className="rounded-lg cursor-pointer">
-                      <Link to="/tableau-de-bord" className="flex items-center gap-2.5 px-2 py-2 text-sm 2xl:text-base">
-                        <LayoutDashboard className="w-4 h-4 2xl:w-5 2xl:h-5 text-muted-foreground" /> Mon espace
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild className="rounded-lg cursor-pointer">
-                      <Link to="/messages" className="flex items-center gap-2.5 px-2 py-2 text-sm 2xl:text-base">
-                        <MessageSquare className="w-4 h-4 2xl:w-5 2xl:h-5 text-muted-foreground" /> Messagerie
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild className="rounded-lg cursor-pointer">
-                      <Link to="/tableau-de-bord?tab=profil" className="flex items-center gap-2.5 px-2 py-2 text-sm 2xl:text-base">
-                        <UserCircle2 className="w-4 h-4 2xl:w-5 2xl:h-5 text-muted-foreground" /> Mon profil public
-                      </Link>
-                    </DropdownMenuItem>
-                    
-                    {profile?.role === 'admin' && (
-                      <>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem asChild className="rounded-lg cursor-pointer">
-                          <Link to="/admin" className="flex items-center gap-2.5 px-2 py-2 text-sm 2xl:text-base font-semibold text-amber-600 dark:text-amber-500">
-                            <ShieldAlert className="w-4 h-4 2xl:w-5 2xl:h-5" /> Espace Administration
-                          </Link>
-                        </DropdownMenuItem>
-                      </>
-                    )}
-                  </div>
+        {/* Conteneur principal — s'adapte de 320px à 7680px (8K) */}
+        <div className="w-full mx-auto
+                        px-4 md:px-5 lg:px-8 xl:px-10
+                        2xl:px-14 3xl:px-20 4xl:px-28 5xl:px-40
+                        grid grid-cols-[auto_1fr_auto] items-stretch
+                        h-[52px] md:h-[58px] lg:h-[62px] xl:h-[64px]
+                        2xl:h-[68px] 3xl:h-[76px] 4xl:h-[88px] 5xl:h-[108px]">
 
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleSignOut} className="rounded-lg cursor-pointer text-destructive focus:text-destructive focus:bg-destructive/10 px-2 py-2 text-sm 2xl:text-base">
-                    <LogOut className="w-4 h-4 2xl:w-5 2xl:h-5 mr-2.5" /> Déconnexion
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          ) : (
-            <div className="flex items-center gap-1 lg:gap-2 animate-in fade-in">
-              <Button asChild variant="ghost" size="sm" className="h-9 lg:h-10 2xl:h-12 px-3 lg:px-4 2xl:px-6 text-[12px] lg:text-sm 2xl:text-base font-medium rounded-full">
-                <Link to="/connexion">Connexion</Link>
-              </Button>
-              <Button asChild size="sm" className="h-9 lg:h-10 2xl:h-12 px-4 lg:px-5 2xl:px-8 text-[12px] lg:text-sm 2xl:text-base font-semibold rounded-full shadow-none">
-                <Link to="/inscription">S'inscrire</Link>
-              </Button>
-            </div>
-          )}
-        </div>
-
-        {/* MENU MOBILE (HAMBURGER) - Uniquement < lg (téléphones et tablettes) */}
-        <div className="lg:hidden flex items-center">
-          {loading ? (
-            <Skeleton className="w-10 h-10 rounded-full" />
-          ) : (
-            <button
-              onClick={() => setMobileOpen(true)}
-              className="flex items-center justify-center w-10 h-10 rounded-full hover:bg-muted transition-colors text-foreground"
-              aria-label="Ouvrir le menu"
-            >
-              <Menu className="w-6 h-6" strokeWidth={2} />
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* DRAWER MOBILE — TRES EPURE */}
-      <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-        {/* On force une hauteur adaptative pour mobile (h-[100dvh] ou h-full) et on évite le scroll root overflow-y */}
-        <SheetContent side="right" className="w-[85vw] max-w-[400px] sm:w-[380px] p-0 border-none bg-background flex flex-col h-[100dvh] shadow-2xl safe-area-padding" hideClose>
-          <SheetTitle className="sr-only">Navigation</SheetTitle>
-          
-          <div className="flex items-center justify-between px-6 py-5 border-b border-border/40">
-            <Logo onClick={() => setMobileOpen(false)} />
-            <button 
-              onClick={() => setMobileOpen(false)} 
-              className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-muted text-foreground transition-colors"
-            >
-              <X className="w-5 h-5" />
-            </button>
+          {/* Col 1 — Logo */}
+          <div className="flex items-center
+                          pr-3 md:pr-4 lg:pr-6 xl:pr-8 2xl:pr-10 4xl:pr-14
+                          border-r border-border/50">
+            <Logo />
           </div>
 
-          <div className="flex-1 overflow-y-auto overscroll-contain px-6 py-8 pb-safe">
-            <nav className="flex flex-col gap-6">
-              {(user ? USER_LINKS : VISITOR_LINKS).map(link => {
-                const Icon = link.icon;
-                const active = isActive(link.href);
-                return (
-                  <Link
-                    key={link.href}
-                    to={link.href}
-                    onClick={() => setMobileOpen(false)}
-                    className={`flex items-center gap-4 text-xl font-medium tracking-tight transition-colors ${
-                      active ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
-                    }`}
-                  >
-                    <div className={`flex items-center justify-center w-10 h-10 rounded-xl border ${active ? 'bg-primary/10 border-primary/20 text-primary' : 'bg-muted border-border/50 text-muted-foreground'}`}>
-                      <Icon className="w-5 h-5" />
-                    </div>
-                    {link.label}
-                  </Link>
-                );
-              })}
-            </nav>
+          {/* Col 2 — Nav (desktop/tablette) */}
+          <div className="flex items-stretch min-w-0 overflow-hidden
+                          pl-1 md:pl-1 lg:pl-2 2xl:pl-3">
+            {!loading && <FlatNav isActive={isActive} />}
+          </div>
 
-            <div className="mt-10 pt-8 border-t border-border/40">
-              {user ? (
-                <div className="flex flex-col gap-4">
-                  <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">Espace Membre</p>
-                  
-                  <Link to="/tableau-de-bord" className="flex items-center gap-3 text-lg font-medium text-foreground hover:opacity-70">
-                    <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center">
-                      <LayoutDashboard className="w-4 h-4" />
-                    </div>
-                    Mon Tableau de bord
-                  </Link>
-                  
-                  <Link to="/messages" className="flex items-center gap-3 text-lg font-medium text-foreground hover:opacity-70">
-                    <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center">
-                      <MessageSquare className="w-4 h-4" />
-                    </div>
-                    Messagerie
-                  </Link>
-                  
-                  <Link to="/tableau-de-bord?tab=profil" className="flex items-center gap-3 text-lg font-medium text-foreground hover:opacity-70">
-                    <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center">
-                      <UserCircle2 className="w-4 h-4" />
-                    </div>
-                    Profil public
-                  </Link>
-                  
-                  <Link to="/soumettre" className="flex items-center gap-3 text-lg font-bold text-primary hover:opacity-70 mt-2 bg-primary/5 p-3 rounded-xl border border-primary/20">
-                    <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
-                      <FilePlus className="w-4 h-4" />
-                    </div>
-                    Déposer une plainte
-                  </Link>
+          {/* Col 3 — Actions droite */}
+          <div className="flex shrink-0 items-center
+                          gap-1.5 md:gap-2 lg:gap-2.5 xl:gap-3 2xl:gap-4 4xl:gap-6
+                          pl-3 md:pl-4 lg:pl-5 xl:pl-6 2xl:pl-8 4xl:pl-12
+                          border-l border-border/50">
 
-                  {profile?.role === 'admin' && (
-                    <Link to="/admin" className="flex items-center gap-3 text-lg font-bold text-amber-600 hover:opacity-70 mt-6 pt-4 border-t border-border/40">
-                      <div className="w-8 h-8 rounded-full bg-amber-500/10 flex items-center justify-center shrink-0">
-                        <ShieldAlert className="w-4 h-4" />
-                      </div>
-                      Espace Administration
-                    </Link>
-                  )}
+            {/* ── DESKTOP ≥ md ─────────────────────────────────────── */}
+            <div className="hidden md:flex items-center
+                            gap-1.5 md:gap-2 lg:gap-2.5 2xl:gap-3 4xl:gap-5">
+              {loading ? (
+                <div className="flex items-center gap-2">
+                  <Skeleton className="h-8 w-20 lg:w-28 2xl:w-32 4xl:w-44 rounded-md" />
+                  <Skeleton className="h-8 w-8 rounded-full" />
                 </div>
-              ) : (
-                <div className="flex flex-col gap-3">
-                  <Button asChild size="lg" className="w-full h-14 rounded-xl text-base font-semibold shadow-none group">
-                    <Link to="/inscription">
-                      Créer un compte
-                      <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
+              ) : user ? (
+                <>
+                  {/* CTA Déposer */}
+                  <Button asChild size="sm"
+                    className="rounded-full shadow-none transition-opacity hover:opacity-90 gap-1.5
+                               h-8 px-3 text-[12px]
+                               md:h-8 md:px-3 md:text-[12px]
+                               lg:h-9 lg:px-4 lg:text-[13px]
+                               xl:h-9 xl:px-4 xl:text-[13px]
+                               2xl:h-10 2xl:px-5 2xl:text-[14px]
+                               3xl:h-11 3xl:px-6 3xl:text-[15px]
+                               4xl:h-14 4xl:px-8 4xl:text-[18px]
+                               5xl:h-16 5xl:px-10 5xl:text-[21px]
+                               font-semibold"
+                    style={{ background: 'hsl(var(--sig))', color: 'hsl(var(--sig-foreground))' }}>
+                    <Link to="/soumettre" className="flex items-center gap-1.5">
+                      <FilePlus className="w-3.5 h-3.5 shrink-0 2xl:w-4 2xl:h-4 4xl:w-5 4xl:h-5 5xl:w-6 5xl:h-6" />
+                      <span>Déposer</span>
+                      <ArrowUpRight className="w-3 h-3 shrink-0 opacity-80 4xl:w-4 4xl:h-4" />
                     </Link>
                   </Button>
-                  <Button asChild variant="outline" size="lg" className="w-full h-14 rounded-xl text-base border-border">
-                    <Link to="/connexion">Se connecter</Link>
+
+                  {/* Avatar + dropdown */}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger aria-label="Menu du compte"
+                      className="flex items-center gap-1.5 rounded-md
+                                 hover:bg-muted/60 transition-colors
+                                 outline-none focus-visible:ring-2 focus-visible:ring-ring
+                                 h-8 pl-1 pr-2 md:h-8
+                                 lg:h-9 lg:pr-2.5
+                                 2xl:h-10 2xl:pr-3
+                                 4xl:h-14 4xl:pl-1.5 4xl:pr-4">
+                      <span
+                        className="flex items-center justify-center rounded-full
+                                   text-background font-black shrink-0
+                                   w-5 h-5 text-[9px]
+                                   lg:w-6 lg:h-6 lg:text-[10px]
+                                   2xl:w-7 2xl:h-7 2xl:text-[11px]
+                                   4xl:w-10 4xl:h-10 4xl:text-[14px]
+                                   5xl:w-12 5xl:h-12 5xl:text-[16px]"
+                        style={{ background: 'hsl(var(--sig))' }}
+                      >
+                        {getInitials(profile?.username)}
+                      </span>
+                      <span className="text-foreground truncate font-medium
+                                       hidden lg:block max-w-[70px]
+                                       text-[12px] lg:text-[13px]
+                                       2xl:text-[14px] 2xl:max-w-[90px]
+                                       4xl:text-[17px] 4xl:max-w-[140px]">
+                        {profile?.username ?? 'Membre'}
+                      </span>
+                      <ChevronRight className="w-3 h-3 text-muted-foreground rotate-90
+                                               4xl:w-4 4xl:h-4" />
+                    </DropdownMenuTrigger>
+
+                    <DropdownMenuContent align="end"
+                      className="w-56 2xl:w-60 4xl:w-80 5xl:w-96 rounded-xl p-1.5 mt-1">
+                      <DropdownMenuLabel className="px-2 py-1.5">
+                        <p className="text-sm 4xl:text-lg font-semibold text-foreground truncate">
+                          @{profile?.username ?? 'Membre'}
+                        </p>
+                        <p className="text-xs 4xl:text-base text-muted-foreground">
+                          {profile?.role === 'admin' ? 'Administrateur' : 'Membre'}
+                        </p>
+                      </DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      {MEMBER_LINKS.map(({ to, icon: Icon, label }) => (
+                        <DropdownMenuItem key={to} asChild className="rounded-lg cursor-pointer">
+                          <Link to={to}
+                            className="flex items-center gap-2.5 px-2 py-2 text-sm 4xl:text-base 4xl:py-3">
+                            <Icon className="w-4 h-4 4xl:w-5 4xl:h-5 text-muted-foreground shrink-0" />
+                            {label}
+                          </Link>
+                        </DropdownMenuItem>
+                      ))}
+                      {profile?.role === 'admin' && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem asChild className="rounded-lg cursor-pointer">
+                            <Link to="/admin"
+                              className="flex items-center gap-2.5 px-2 py-2 text-sm font-semibold
+                                         4xl:text-base 4xl:py-3
+                                         text-amber-600 dark:text-amber-400">
+                              <ShieldAlert className="w-4 h-4 4xl:w-5 4xl:h-5 shrink-0" />
+                              Administration
+                            </Link>
+                          </DropdownMenuItem>
+                        </>
+                      )}
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={handleSignOut}
+                        className="rounded-lg cursor-pointer text-destructive
+                                   focus:text-destructive focus:bg-destructive/10
+                                   px-2 py-2 text-sm 4xl:text-base 4xl:py-3">
+                        <LogOut className="w-4 h-4 4xl:w-5 4xl:h-5 mr-2.5 shrink-0" />
+                        Déconnexion
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </>
+              ) : (
+                /* Visiteur */
+                <div className="flex items-center gap-1.5 md:gap-2 lg:gap-2.5 2xl:gap-3 4xl:gap-5">
+                  {/* Connexion — outline */}
+                  <Button asChild variant="outline" size="sm"
+                    className="rounded-md shadow-none transition-colors font-medium
+                               border-border/80 text-foreground hover:bg-muted/60 hover:border-border
+                               h-8 px-3 text-[12px]
+                               lg:h-9 lg:px-4 lg:text-[13px]
+                               2xl:h-10 2xl:px-5 2xl:text-[14px]
+                               4xl:h-14 4xl:px-8 4xl:text-[18px]
+                               5xl:h-16 5xl:px-10 5xl:text-[21px]">
+                    <Link to="/connexion">Connexion</Link>
+                  </Button>
+                  {/* S'inscrire — pill rouge */}
+                  <Button asChild size="sm"
+                    className="rounded-full shadow-none transition-opacity hover:opacity-90 font-semibold
+                               h-8 px-3 text-[12px]
+                               lg:h-9 lg:px-4 lg:text-[13px]
+                               2xl:h-10 2xl:px-5 2xl:text-[14px]
+                               4xl:h-14 4xl:px-8 4xl:text-[18px]
+                               5xl:h-16 5xl:px-10 5xl:text-[21px]"
+                    style={{ background: 'hsl(var(--sig))', color: 'hsl(var(--sig-foreground))' }}>
+                    <Link to="/inscription">S'inscrire</Link>
                   </Button>
                 </div>
               )}
             </div>
-          </div>
 
-          {user && (
-            <div className="p-6 pb-safe border-t border-border/40 shrink-0">
-              <button 
-                onClick={handleSignOut} 
-                className="flex items-center gap-2 text-base font-medium text-muted-foreground hover:text-destructive transition-colors"
-              >
-                <LogOut className="w-5 h-5" />
-                Se déconnecter
-              </button>
+            {/* ── MOBILE < md — hamburger ──────────────────────────── */}
+            <div className="md:hidden">
+              {loading ? (
+                <Skeleton className="w-9 h-9 rounded-md" />
+              ) : (
+                <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+                  {/* Bouton hamburger — touch target 44×44px minimum */}
+                  <button
+                    onClick={() => setMobileOpen(true)}
+                    aria-label="Ouvrir le menu"
+                    aria-expanded={mobileOpen}
+                    className="flex items-center justify-center w-11 h-11 rounded-md
+                               hover:bg-muted/60 transition-colors"
+                  >
+                    <Menu className="w-5 h-5 text-foreground" />
+                  </button>
+
+                  {/* ══════════════════════════════════════════════════
+                      MENU MOBILE — plein écran éditorial
+                      ══════════════════════════════════════════════════ */}
+                  <SheetContent
+                    side="right"
+                    hideClose
+                    className="w-full sm:w-full p-0 flex flex-col border-0"
+                    style={{ background: 'hsl(var(--foreground))' }}
+                  >
+                    {/* En-tête — logo inversé + bouton fermer */}
+                    <SheetHeader className="flex-row items-center justify-between
+                                            px-6 pt-5 pb-4 shrink-0">
+                      <SheetTitle asChild>
+                        <Link to="/" onClick={close} aria-label="RPGuard — Accueil"
+                          className="shrink-0 select-none">
+                          <span className="font-extrabold tracking-tighter leading-none
+                                           inline-flex items-baseline gap-0 text-[22px]"
+                            style={{ color: 'hsl(var(--background))' }}>
+                            <span className="relative">
+                              RP
+                              <span aria-hidden
+                                className="absolute -right-[3px] top-[0.05em] bottom-[0.05em] w-[2px] rounded-full"
+                                style={{ background: 'hsl(var(--sig))', animation: 'rp-cursor 1.4s ease-in-out infinite' }} />
+                            </span>
+                            <span className="font-light opacity-40 tracking-normal ml-[5px]">Guard</span>
+                          </span>
+                        </Link>
+                      </SheetTitle>
+                      <button onClick={close} aria-label="Fermer le menu"
+                        className="w-10 h-10 flex items-center justify-center
+                                   rounded-md transition-opacity hover:opacity-60"
+                        style={{ color: 'hsl(var(--background))' }}>
+                        <X className="w-5 h-5" />
+                      </button>
+                    </SheetHeader>
+
+                    {/* Séparateur rouge signature */}
+                    <div className="mx-6 h-[1px] shrink-0"
+                      style={{ background: 'hsl(var(--sig)/0.6)' }} />
+
+                    {/* Corps scrollable */}
+                    <div className="flex-1 overflow-y-auto overscroll-contain
+                                    px-6 py-6 flex flex-col gap-1">
+
+                      {/* Nav principale — grands caractères éditoriaux */}
+                      <nav aria-label="Navigation mobile" className="flex flex-col gap-0 mb-6">
+                        {NAV_LINKS.map(({ href, label, num, icon: Icon }) => {
+                          const active = isActive(href);
+                          return (
+                            <Link
+                              key={href}
+                              to={href}
+                              onClick={close}
+                              className="group flex items-center justify-between py-4
+                                         border-b border-white/10 transition-all duration-200"
+                            >
+                              <div className="flex items-baseline gap-3">
+                                <span className="text-[11px] font-bold tabular-nums"
+                                  style={{ color: 'hsl(var(--sig))' }}>
+                                  {num}
+                                </span>
+                                <span
+                                  className="text-[28px] font-extrabold tracking-tighter leading-none
+                                             transition-all duration-200"
+                                  style={{
+                                    color: active
+                                      ? 'hsl(var(--background))'
+                                      : 'hsl(var(--background)/0.5)',
+                                  }}
+                                >
+                                  {label}
+                                </span>
+                              </div>
+                              <Icon
+                                className="w-5 h-5 shrink-0 opacity-30
+                                           group-hover:opacity-70 transition-opacity"
+                                style={{ color: 'hsl(var(--background))' }}
+                              />
+                            </Link>
+                          );
+                        })}
+                      </nav>
+
+                      {/* Espace membre / visiteur */}
+                      {user ? (
+                        <div className="flex flex-col gap-1">
+                          <p className="text-[10px] font-bold uppercase tracking-[0.2em] mb-3"
+                            style={{ color: 'hsl(var(--background)/0.35)' }}>
+                            Espace Membre
+                          </p>
+                          {MEMBER_LINKS.map(({ to, icon: Icon, label }) => (
+                            <Link key={to} to={to} onClick={close}
+                              className="flex items-center gap-3 min-h-[44px] px-1 rounded-lg
+                                         text-sm font-medium transition-colors"
+                              style={{ color: 'hsl(var(--background)/0.65)' }}
+                              onMouseEnter={e => (e.currentTarget.style.color = 'hsl(var(--background))')}
+                              onMouseLeave={e => (e.currentTarget.style.color = 'hsl(var(--background)/0.65)')}>
+                              <Icon className="w-4 h-4 shrink-0 opacity-50" />
+                              {label}
+                            </Link>
+                          ))}
+                          {profile?.role === 'admin' && (
+                            <Link to="/admin" onClick={close}
+                              className="flex items-center gap-3 min-h-[44px] px-1 rounded-lg
+                                         text-sm font-semibold mt-1"
+                              style={{ color: 'hsl(38 92% 50%)' }}>
+                              <ShieldAlert className="w-4 h-4 shrink-0" />
+                              Administration
+                            </Link>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="flex flex-col gap-3 mt-2">
+                          <p className="text-[10px] font-bold uppercase tracking-[0.2em]"
+                            style={{ color: 'hsl(var(--background)/0.35)' }}>
+                            Rejoindre RPGuard
+                          </p>
+                          <Button asChild size="lg"
+                            className="w-full h-12 rounded-xl text-sm font-semibold shadow-none"
+                            style={{ background: 'hsl(var(--background))', color: 'hsl(var(--foreground))' }}>
+                            <Link to="/inscription" onClick={close}>Créer un compte gratuitement</Link>
+                          </Button>
+                          <button onClick={() => { close(); navigate('/connexion'); }}
+                            className="w-full h-11 rounded-xl text-sm font-medium border
+                                       transition-opacity hover:opacity-80"
+                            style={{ borderColor: 'hsl(var(--background)/0.25)', color: 'hsl(var(--background)/0.70)' }}>
+                            Se connecter
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Liens secondaires */}
+                      <div className="mt-6 pt-5 border-t"
+                        style={{ borderColor: 'hsl(var(--background)/0.12)' }}>
+                        <p className="text-[10px] font-bold uppercase tracking-[0.2em] mb-3"
+                          style={{ color: 'hsl(var(--background)/0.35)' }}>
+                          Explorer
+                        </p>
+                        {[
+                          { to: '/actualites',      label: 'Actualités' },
+                          { to: '/label-confiance', label: 'Label de Confiance' },
+                          { to: '/contact',         label: 'Contact & Support' },
+                        ].map(({ to, label }) => (
+                          <Link key={to} to={to} onClick={close}
+                            className="flex items-center min-h-[40px] px-1 rounded-lg
+                                       text-sm transition-colors"
+                            style={{ color: 'hsl(var(--background)/0.50)' }}
+                            onMouseEnter={e => (e.currentTarget.style.color = 'hsl(var(--background)/0.80)')}
+                            onMouseLeave={e => (e.currentTarget.style.color = 'hsl(var(--background)/0.50)')}>
+                            {label}
+                          </Link>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Pied épinglé — si connecté */}
+                    {user && (
+                      <div className="shrink-0 p-5 pb-safe grid grid-cols-2 gap-2 border-t"
+                        style={{ borderColor: 'hsl(var(--background)/0.12)' }}>
+                        <Link to="/soumettre" onClick={close}
+                          className="flex items-center justify-center gap-2 h-11 rounded-xl
+                                     text-sm font-semibold transition-opacity hover:opacity-90"
+                          style={{ background: 'hsl(var(--sig))', color: 'hsl(var(--sig-foreground))' }}>
+                          <FilePlus className="w-4 h-4 shrink-0" />
+                          Déposer
+                        </Link>
+                        <button onClick={handleSignOut}
+                          className="flex items-center justify-center gap-2 h-11 rounded-xl
+                                     text-sm font-medium border transition-opacity hover:opacity-60"
+                          style={{
+                            borderColor: 'hsl(var(--background)/0.20)',
+                            color: 'hsl(var(--background)/0.55)',
+                          }}>
+                          <LogOut className="w-4 h-4 shrink-0" />
+                          Déconnexion
+                        </button>
+                      </div>
+                    )}
+                  </SheetContent>
+                </Sheet>
+              )}
             </div>
-          )}
-        </SheetContent>
-      </Sheet>
-    </header>
+          </div>
+        </div>
+      </header>
+    </>
   );
 }
+

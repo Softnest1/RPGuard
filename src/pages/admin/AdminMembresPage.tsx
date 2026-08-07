@@ -46,20 +46,24 @@ export default function AdminMembresPage() {
     setRoleTarget(target);
   };
 
+  const [togglingRole, setTogglingRole] = useState(false);
+
   // Exécuté après confirmation dans l'AlertDialog
   const confirmToggleRole = async () => {
-    if (!roleTarget) return;
+    if (!roleTarget || togglingRole) return;
     const newRole = (roleTarget.role === 'admin' ? 'user' : 'admin') as UserRole;
     const label   = newRole === 'admin' ? 'promu administrateur' : 'rétrogradé membre';
-
+    setTogglingRole(true);
     try {
       await adminUpdateProfileRole(roleTarget.id, newRole);
       setMembers(prev => prev.map(m => m.id === roleTarget.id ? { ...m, role: newRole } : m));
       toast.success(`@${roleTarget.username} ${label}.`);
     } catch {
       toast.error('Erreur mise à jour rôle');
+    } finally {
+      setTogglingRole(false);
+      setRoleTarget(null);
     }
-    setRoleTarget(null);
   };
 
   const adminCount  = members.filter(m => m.role === 'admin').length;
@@ -84,9 +88,10 @@ export default function AdminMembresPage() {
           <AlertDialogCancel>Annuler</AlertDialogCancel>
           <AlertDialogAction
             onClick={confirmToggleRole}
+            disabled={togglingRole}
             className={roleTarget?.role !== 'admin' ? '' : 'bg-destructive text-destructive-foreground hover:bg-destructive/90'}
           >
-            Confirmer
+            {togglingRole ? 'En cours…' : 'Confirmer'}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

@@ -1,212 +1,307 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import PageMeta from '@/components/common/PageMeta';
+import PageContainer from '@/components/layouts/PageContainer';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { RefreshCcw, ShieldCheck, Zap, UserPlus, ThumbsUp, Megaphone, Filter } from 'lucide-react';
+import {
+  RefreshCcw, ShieldCheck, Zap, ThumbsUp,
+  Megaphone, Wrench, Rocket, Star,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 import { fetchNews, toggleNewsReaction } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import type { News } from '@/types/types';
 
+// ── Types visuels par catégorie ───────────────────────────────────────────────
+const TYPE_CONFIG: Record<string, {
+  label: string;
+  Icon: React.FC<{ className?: string }>;
+  dot: string;
+}> = {
+  feature: {
+    label: 'Nouveauté',
+    Icon: Rocket,
+    dot: 'bg-primary',
+  },
+  improvement: {
+    label: 'Amélioration',
+    Icon: RefreshCcw,
+    dot: 'bg-sky-500',
+  },
+  fix: {
+    label: 'Correctif',
+    Icon: Wrench,
+    dot: 'bg-amber-500',
+  },
+  news: {
+    label: 'Annonce',
+    Icon: Megaphone,
+    dot: 'bg-violet-500',
+  },
+};
+
+// ── Filtres disponibles ───────────────────────────────────────────────────────
+type FilterKey = 'all' | 'feature' | 'improvement' | 'fix' | 'news';
+const FILTERS: { key: FilterKey; label: string }[] = [
+  { key: 'all',         label: 'Tout'         },
+  { key: 'news',        label: 'Annonces'     },
+  { key: 'feature',     label: 'Nouveautés'   },
+  { key: 'improvement', label: 'Améliorations' },
+  { key: 'fix',         label: 'Correctifs'   },
+];
+
+// ── Skeleton card ─────────────────────────────────────────────────────────────
+function NewsCardSkeleton() {
+  return (
+    <div className="flex gap-4 md:gap-6 py-8 border-b border-border/40">
+      <div className="flex flex-col items-center gap-2 shrink-0 pt-1">
+        <Skeleton className="w-2 h-2 rounded-full" />
+        <Skeleton className="w-px flex-1 min-h-[40px]" />
+      </div>
+      <div className="flex-1 min-w-0 space-y-3">
+        <Skeleton className="h-4 w-24 rounded" />
+        <Skeleton className="h-6 w-3/4 rounded" />
+        <Skeleton className="h-4 w-full rounded" />
+        <Skeleton className="h-4 w-2/3 rounded" />
+      </div>
+    </div>
+  );
+}
+
+// ── Composant principal ───────────────────────────────────────────────────────
 export default function ActualitesPage() {
   const { user } = useAuth();
-  const [updates, setUpdates] = useState<News[]>([]);
+  const [news, setNews]       = useState<News[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<'all' | 'news' | 'updates'>('all');
+  const likingRef = useRef<Set<string>>(new Set());
+  const [filter, setFilter]   = useState<FilterKey>('all');
 
-  useEffect(() => {
-    loadNews();
-  }, [user?.id]);
+  useEffect(() => { loadNews(); }, [user?.id]);
 
   const loadNews = async () => {
+    setLoading(true);
     try {
       const data = await fetchNews(user?.id);
-      setUpdates(data);
-    } catch (err) {
-      console.error(err);
+      setNews(data);
+    } catch {
+      toast.error('Impossible de charger les actualités.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleToggleLike = async (newsId: string, currentLikeState: boolean | undefined, currentLikesCount: number | undefined) => {
+  const handleToggleLike = async (
+    newsId: string,
+    isLiked: boolean | undefined,
+    count: number | undefined,
+  ) => {
     if (!user) {
-      toast.info("Vous devez être connecté pour réagir aux actualités.", {
-        action: { label: "Se connecter", onClick: () => window.location.href = '/connexion' }
+      toast.info('Connectez-vous pour réagir aux actualités.', {
+        action: { label: 'Se connecter', onClick: () => { window.location.href = '/connexion'; } },
       });
       return;
     }
-
-    const isCurrentlyLiked = !!currentLikeState;
-    const currentCount = currentLikesCount || 0;
-
-    // Optimistic UI update
-    setUpdates(prev => prev.map(n => {
-      if (n.id === newsId) {
-        return {
-          ...n,
-          user_liked: !isCurrentlyLiked,
-          likes_count: isCurrentlyLiked ? Math.max(0, currentCount - 1) : currentCount + 1
-        };
-      }
-      return n;
-    }));
-
+    // Anti-double-clic : ignorer si déjà en cours pour cet item
+    if (likingRef.current.has(newsId)) return;
+    likingRef.current.add(newsId);
+    const liked = !!isLiked;
+    const cur   = count ?? 0;
+    // Optimistic update
+    setNews(prev => prev.map(n =>
+      n.id === newsId
+        ? { ...n, user_liked: !liked, likes_count: liked ? Math.max(0, cur - 1) : cur + 1 }
+        : n,
+    ));
     try {
-      await toggleNewsReaction(newsId, user.id, isCurrentlyLiked);
-    } catch (err) {
-      toast.error("Erreur lors de l'enregistrement de votre réaction.");
-      // Rollback on error
+      await toggleNewsReaction(newsId, user.id, liked);
+    } catch {
+      toast.error('Erreur lors de l\'enregistrement.');
       await loadNews();
+    } finally {
+      likingRef.current.delete(newsId);
     }
   };
 
-  const filteredUpdates = updates.filter(update => {
-    if (filter === 'all') return true;
-    if (filter === 'news') return update.type === 'feature' || update.type === 'news';
-    if (filter === 'updates') return update.type === 'improvement' || update.type === 'fix';
-    return true;
-  });
+  // Filtrer
+  const filtered = useMemo(() =>
+    news.filter(n => filter === 'all' || n.type === filter),
+    [news, filter],
+  );
+
+  // Grouper par mois/année
+  const grouped = useMemo(() => {
+    const map = new Map<string, News[]>();
+    for (const item of filtered) {
+      const key = format(new Date(item.created_at), 'MMMM yyyy', { locale: fr });
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(item);
+    }
+    return Array.from(map.entries());
+  }, [filtered]);
 
   return (
-    <div className="max-w-4xl mx-auto px-4 md:px-8 py-16 md:py-24 min-h-screen">
+    <>
       <PageMeta
         title="Actualités & Mises à jour — RPGuard"
-        description="Suivez l'évolution de RPGuard. Découvrez nos dernières fonctionnalités, améliorations et correctifs."
+        description="Suivez l'évolution de RPGuard : nouveautés, améliorations et correctifs depuis le lancement."
       />
 
-      {/* ── En-tête ─────────────────────────────────────────── */}
-      <header className="mb-12">
-        <h1 className="text-3xl md:text-5xl font-semibold text-foreground tracking-tight text-balance mb-4">
-          Actualités & Mises à jour
-        </h1>
-        <p className="text-base md:text-lg text-muted-foreground leading-relaxed max-w-2xl text-pretty">
-          Découvrez en temps réel tout ce qui change sur RPGuard. Triez par catégorie pour séparer les annonces majeures des simples correctifs.
-        </p>
-      </header>
+      {/* ── Hero ────────────────────────────────────────────────────────── */}
+      <section className="border-b border-border bg-card">
+        <PageContainer width="content">
+          <div className="py-14 md:py-20">
+            <div className="flex items-center gap-2 mb-4">
+              <Star className="w-4 h-4 text-primary" />
+              <span className="text-xs font-bold uppercase tracking-[0.15em] text-muted-foreground">
+                Changelog
+              </span>
+            </div>
+            <h1 className="text-3xl md:text-5xl font-semibold text-foreground tracking-tight text-balance mb-4 leading-[1.1]">
+              Actualités &amp; Mises à jour
+            </h1>
+            <p className="text-base md:text-lg text-muted-foreground leading-relaxed max-w-xl text-pretty">
+              Toutes les évolutions de RPGuard depuis le lancement — fonctionnalités, améliorations et correctifs.
+            </p>
+          </div>
+        </PageContainer>
+      </section>
 
-      {/* ── Filtres ─────────────────────────────────────────── */}
-      <div className="flex flex-wrap items-center gap-2 mb-12 pb-6 border-b border-border/50">
-        <div className="flex items-center gap-2 mr-4 text-muted-foreground text-sm font-medium">
-          <Filter className="w-4 h-4" /> Filtrer :
-        </div>
-        <Button 
-          variant={filter === 'all' ? 'default' : 'outline'} 
-          size="sm" 
-          onClick={() => setFilter('all')}
-          className="rounded-full"
-        >
-          Tout afficher
-        </Button>
-        <Button 
-          variant={filter === 'news' ? 'default' : 'outline'} 
-          size="sm" 
-          onClick={() => setFilter('news')}
-          className="rounded-full"
-        >
-          Annonces & Nouveautés
-        </Button>
-        <Button 
-          variant={filter === 'updates' ? 'default' : 'outline'} 
-          size="sm" 
-          onClick={() => setFilter('updates')}
-          className="rounded-full"
-        >
-          Correctifs & Améliorations
-        </Button>
+      {/* ── Filtres sticky ──────────────────────────────────────────────── */}
+      <div className="sticky top-0 z-20 bg-background/98 border-b border-border">
+        <PageContainer width="content">
+          <div className="py-3 flex items-center gap-2 overflow-x-auto scrollbar-none">
+            {FILTERS.map(({ key, label }) => (
+              <button
+                key={key}
+                onClick={() => setFilter(key)}
+                className={`shrink-0 px-4 py-1.5 rounded-full text-sm font-medium transition-all
+                  ${filter === key
+                    ? 'bg-foreground text-background'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
+                  }`}
+              >
+                {label}
+              </button>
+            ))}
+            {/* compteur */}
+            {!loading && (
+              <span className="ml-auto shrink-0 text-xs text-muted-foreground tabular-nums pl-2">
+                {filtered.length} entrée{filtered.length !== 1 ? 's' : ''}
+              </span>
+            )}
+          </div>
+        </PageContainer>
       </div>
 
-      {/* ── Timeline ────────────────────────────────────────── */}
-      <div className="space-y-8 pb-12">
-        {loading ? (
-          <div className="flex justify-center py-12">
-            <div className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-          </div>
-        ) : filteredUpdates.length === 0 ? (
-          <div className="text-center py-16 bg-muted/20 border border-border/50 rounded-2xl">
-            <p className="text-muted-foreground">Aucune publication dans cette catégorie.</p>
-          </div>
-        ) : (
-          filteredUpdates.map((update) => {
-            // Déterminer l'icône et la couleur selon le type
-            let Icon = Zap;
-            let badgeColor = 'bg-primary/10 text-primary border-primary/20';
-            let label = 'Nouveau';
+      {/* ── Timeline ────────────────────────────────────────────────────── */}
+      <PageContainer width="content">
+        <div className="py-12 md:py-16">
 
-            if (update.type === 'improvement') {
-              Icon = RefreshCcw;
-              badgeColor = 'bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400 border-blue-200 dark:border-blue-900/50';
-              label = 'Amélioration';
-            } else if (update.type === 'feature') {
-              Icon = UserPlus;
-              badgeColor = 'bg-green-50 text-green-700 dark:bg-green-950/40 dark:text-green-400 border-green-200 dark:border-green-900/50';
-              label = 'Fonctionnalité';
-            } else if (update.type === 'fix') {
-              Icon = ShieldCheck;
-              badgeColor = 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400 border-amber-200 dark:border-amber-900/50';
-              label = 'Correctif';
-            } else if (update.type === 'news') {
-              Icon = Megaphone;
-              badgeColor = 'bg-purple-50 text-purple-700 dark:bg-purple-950/40 dark:text-purple-400 border-purple-200 dark:border-purple-900/50';
-              label = 'Actualité communautaire';
-            }
+          {loading ? (
+            /* Skeleton */
+            <div className="space-y-0">
+              {Array.from({ length: 5 }).map((_, i) => <NewsCardSkeleton key={i} />)}
+            </div>
 
-            return (
-              <article key={update.id} className="relative bg-card border border-border/60 hover:border-border transition-colors rounded-2xl p-6 md:p-8 shadow-sm">
-                
-                {/* En-tête de la carte */}
-                <div className="flex flex-wrap items-center gap-3 mb-4">
-                  <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center mr-2">
-                    <Icon className="w-5 h-5 text-foreground/70" />
-                  </div>
-                  <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider border ${badgeColor}`}>
-                    {label}
+          ) : filtered.length === 0 ? (
+            <div className="py-24 text-center">
+              <p className="text-muted-foreground text-sm">Aucune entrée dans cette catégorie.</p>
+            </div>
+
+          ) : (
+            grouped.map(([month, items]) => (
+              <div key={month} className="mb-12">
+                {/* ── Séparateur de mois ── */}
+                <div className="flex items-center gap-4 mb-8">
+                  <span className="text-xs font-bold uppercase tracking-[0.15em] text-muted-foreground whitespace-nowrap capitalize">
+                    {month}
                   </span>
-                  {update.version && (
-                    <span className="text-sm font-semibold text-foreground/80 bg-muted/50 px-2 py-0.5 rounded-md">
-                      {update.version}
-                    </span>
-                  )}
-                  <div className="flex-1" />
-                  <time className="text-sm text-muted-foreground font-medium">
-                    {format(new Date(update.created_at), 'dd MMM yyyy', { locale: fr })}
-                  </time>
+                  <div className="flex-1 h-px bg-border" />
                 </div>
 
-                {/* Contenu */}
-                <div className="pl-0 md:pl-14">
-                  <h2 className="text-xl md:text-2xl font-bold text-foreground text-balance mb-3">
-                    {update.title}
-                  </h2>
+                {/* ── Cartes du mois ── */}
+                <div className="space-y-0">
+                  {items.map((item, idx) => {
+                    const cfg = TYPE_CONFIG[item.type] ?? TYPE_CONFIG.news;
+                    const Icon = cfg.Icon;
+                    const isLast = idx === items.length - 1;
 
-                  {/* Interprétation du contenu Markdown-like très basique ou rendu direct du texte avec sauts de ligne */}
-                  <div className="text-base text-muted-foreground leading-relaxed text-pretty max-w-3xl whitespace-pre-wrap">
-                    {update.content.replace(/\\n/g, '\n')}
-                  </div>
+                    return (
+                      <div key={item.id} className="flex gap-5 md:gap-7">
 
-                  {/* Actions / Réactions */}
-                  <div className="mt-6 pt-4 border-t border-border/40 flex items-center">
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      onClick={() => handleToggleLike(update.id, update.user_liked, update.likes_count)}
-                      className={`h-9 px-4 rounded-full text-xs font-medium border transition-all ${
-                        update.user_liked 
-                          ? 'bg-primary/10 text-primary border-primary/20 hover:bg-primary/20 shadow-sm' 
-                          : 'bg-background text-muted-foreground border-border hover:bg-muted'
-                      }`}
-                    >
-                      <ThumbsUp className={`w-4 h-4 mr-2 ${update.user_liked ? 'fill-current text-primary' : ''}`} />
-                      {update.likes_count || 0} {update.likes_count && update.likes_count > 1 ? 'j\'aimes' : 'j\'aime'}
-                    </Button>
-                  </div>
+                        {/* Indicateur timeline */}
+                        <div className="flex flex-col items-center shrink-0 pt-[5px]">
+                          <div className={`w-2 h-2 rounded-full shrink-0 mt-0.5 ${cfg.dot}`} />
+                          {!isLast && (
+                            <div className="w-px flex-1 bg-border/60 mt-2 mb-0" />
+                          )}
+                        </div>
+
+                        {/* Contenu */}
+                        <article className={`flex-1 min-w-0 pb-10 ${isLast ? '' : ''}`}>
+
+                          {/* En-tête */}
+                          <div className="flex flex-wrap items-center gap-2 mb-3">
+                            {/* Badge type */}
+                            <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                              <Icon className="w-3.5 h-3.5" />
+                              {cfg.label}
+                            </span>
+
+                            {/* Version tag */}
+                            {item.version && (
+                              <span className="text-[11px] font-mono font-semibold text-muted-foreground/70
+                                               bg-muted/50 px-2 py-0.5 rounded">
+                                {item.version}
+                              </span>
+                            )}
+
+                            <div className="flex-1" />
+
+                            {/* Date */}
+                            <time className="text-xs text-muted-foreground tabular-nums">
+                              {format(new Date(item.created_at), 'd MMM yyyy', { locale: fr })}
+                            </time>
+                          </div>
+
+                          {/* Titre */}
+                          <h2 className="text-lg md:text-xl font-semibold text-foreground text-balance mb-3 leading-snug">
+                            {item.title}
+                          </h2>
+
+                          {/* Corps */}
+                          <div className="text-sm md:text-base text-muted-foreground leading-relaxed text-pretty
+                                          whitespace-pre-wrap max-w-2xl">
+                            {item.content.replace(/\\n/g, '\n')}
+                          </div>
+
+                          {/* Like */}
+                          <div className="mt-5">
+                            <button
+                              onClick={() => handleToggleLike(item.id, item.user_liked, item.likes_count)}
+                              className={`inline-flex items-center gap-1.5 text-xs font-medium
+                                         px-3 py-1.5 rounded-full border transition-all
+                                         ${item.user_liked
+                                           ? 'bg-primary/8 text-primary border-primary/20 hover:bg-primary/15'
+                                           : 'text-muted-foreground border-border hover:border-foreground/30 hover:text-foreground'
+                                         }`}
+                            >
+                              <ThumbsUp className={`w-3.5 h-3.5 transition-transform ${item.user_liked ? 'scale-110' : ''}`} />
+                              <span>{item.likes_count ?? 0}</span>
+                            </button>
+                          </div>
+                        </article>
+                      </div>
+                    );
+                  })}
                 </div>
-              </article>
-            );
-          })
-        )}
-      </div>
-    </div>
+              </div>
+            ))
+          )}
+        </div>
+      </PageContainer>
+    </>
   );
 }

@@ -23,6 +23,7 @@ import PlainteRecap from '@/components/common/PlainteRecap';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   fetchMyPlaintes, updateProfile, deletePlainte, fetchProfile, uploadAvatar,
+  isUsernameAvailable,
 } from '@/lib/api';
 import type { Plainte, PlainteStatus, Profile } from '@/types/types';
 import { toast } from 'sonner';
@@ -40,13 +41,14 @@ const STATUS_ORDER: PlainteStatus[] = ['En attente', 'Validée', 'Rejetée', 'Vi
 // ── Composant principal ────────────────────────────────────────────────────
 
 export default function TableauDeBordPage() {
-  const { user, profile: authProfile, signOut, refreshProfile, reauthAndUpdatePassword } = useAuth();
+  const { user, profile: authProfile, signOut, refreshProfile, reauthAndUpdatePassword, deleteAccount } = useAuth();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const activeTab = (searchParams.get('tab') as Tab) ?? 'plaintes';
   const setTab = (tab: Tab) => setSearchParams({ tab });
 
+  const signingOutRef = useRef(false);
   const [plaintes, setPlaintes] = useState<Plainte[]>([]);
   const [loadingPlaintes, setLoadingPlaintes] = useState(true);
   const [fullProfile, setFullProfile] = useState<Profile | null>(null);
@@ -131,7 +133,13 @@ export default function TableauDeBordPage() {
             variant="ghost"
             size="sm"
             className="text-muted-foreground hover:text-destructive gap-1.5 rounded-full"
-            onClick={async () => { await signOut(); navigate('/'); }}
+            disabled={signingOutRef.current}
+            onClick={async () => {
+              if (signingOutRef.current) return;
+              signingOutRef.current = true;
+              try { await signOut(); navigate('/'); }
+              finally { signingOutRef.current = false; }
+            }}
           >
             <LogOut className="w-4 h-4" />
             <span className="hidden md:inline">Déconnexion</span>
@@ -186,6 +194,8 @@ export default function TableauDeBordPage() {
           userId={user!.id}
           plaintes={plaintes}
           onSaved={async () => { await refreshProfile(); await loadData(); }}
+          deleteAccount={deleteAccount}
+          signOut={signOut}
         />
       )}
 
@@ -512,12 +522,14 @@ function MesPlaintesTab({
 // ── Onglet Mon Profil ──────────────────────────────────────────────────────
 
 function MonProfilTab({
-  profile, userId, onSaved, plaintes,
+  profile, userId, onSaved, plaintes, deleteAccount, signOut,
 }: {
   profile: Profile | null;
   userId: string;
   onSaved: () => Promise<void>;
   plaintes: Plainte[];
+  deleteAccount: (password: string) => Promise<{ error: Error | null }>;
+  signOut: () => Promise<void>;
 }) {
   // ── Pseudo ────────────────────────────────────────────────────────────────
   const [username, setUsername] = useState(profile?.username ?? '');
@@ -548,8 +560,18 @@ function MonProfilTab({
 
   const handleSaveUsername = async () => {
     if (!usernameValid) return;
+    // Pas besoin de vérifier si le pseudo n'a pas changé
+    if (username === profile?.username) {
+      setEditUsername(false);
+      return;
+    }
     setSaving(true);
     try {
+      const available = await isUsernameAvailable(username);
+      if (!available) {
+        toast.error('Ce pseudo est déjà pris. Choisissez-en un autre.');
+        return;
+      }
       await updateProfile(userId, { username });
       await onSaved();
       setEditUsername(false);
@@ -608,9 +630,10 @@ function MonProfilTab({
   const handleSaveRp = async () => {
     setSavingRp(true);
     try {
+      // Envoyer null explicitement pour vider les champs (undefined est ignoré par updateProfile)
       await updateProfile(userId, {
-        pseudo_rp: pseudoRp.trim() || undefined,
-        bio: bio.trim() || undefined,
+        pseudo_rp: pseudoRp.trim() || null,
+        bio: bio.trim() || null,
       });
       await onSaved();
       setEditRp(false);
@@ -739,8 +762,8 @@ function MonProfilTab({
             </div>
             <p className="text-xs text-muted-foreground">3–20 caractères · lettres, chiffres, _</p>
             <div className="flex gap-2">
-              <Button size="sm" onClick={handleSaveUsername} disabled={saving || !usernameValid}>
-                {saving ? 'Sauvegarde…' : 'Enregistrer'}
+              <Button size="sm" onClick={handleSaveUsername} disabled={saving || !usernameValid || username === profile?.username}>
+                {saving ? 'Vérification…' : 'Enregistrer'}
               </Button>
               <Button size="sm" variant="outline" onClick={() => { setEditUsername(false); setUsername(profile?.username ?? ''); }}>
                 Annuler
@@ -903,16 +926,220 @@ function MonProfilTab({
       </section>
 
       {/* ── Zone sensible ────────────────────────────────────────────────────── */}
-      <section className="p-5 rounded-2xl border border-destructive/20 bg-destructive/5 flex flex-col gap-3">
-        <div className="flex items-center gap-2">
-          <AlertTriangle className="w-4 h-4 text-destructive" />
-          <h2 className="text-sm font-semibold text-destructive">Zone sensible</h2>
-        </div>
-        <p className="text-xs text-muted-foreground">
-          La suppression de compte n'est pas encore disponible. Contactez-nous via la page <Link to="/contact" className="underline hover:text-foreground">Contact</Link>.
-        </p>
-      </section>
+      <DeleteAccountSection deleteAccount={deleteAccount} signOut={signOut} />
     </div>
+  );
+}
+
+// ── Zone sensible — Suppression de compte ─────────────────────────────────
+
+function DeleteAccountSection({
+  deleteAccount,
+  signOut,
+}: {
+  deleteAccount: (password: string) => Promise<{ error: Error | null }>;
+  signOut: () => Promise<void>;
+}) {
+  const navigate = useNavigate();
+  const [open, setOpen]           = useState(false);
+  const [step, setStep]           = useState<'warn' | 'confirm' | 'done'>('warn');
+  const [password, setPassword]   = useState('');
+  const [showPwd, setShowPwd]     = useState(false);
+  const [loading, setLoading]     = useState(false);
+  const [typed, setTyped]         = useState('');
+  const CONFIRM_WORD              = 'SUPPRIMER';
+
+  // Réinitialiser l'état à chaque ouverture du dialog
+  const handleOpen = (v: boolean) => {
+    setOpen(v);
+    if (v) { setStep('warn'); setPassword(''); setTyped(''); setShowPwd(false); }
+  };
+
+  const handleDelete = async () => {
+    if (typed !== CONFIRM_WORD || !password) return;
+    setLoading(true);
+    const { error } = await deleteAccount(password);
+    setLoading(false);
+
+    if (error) {
+      if (error.message.includes('incorrect') || error.message.includes('Invalid')) {
+        toast.error('Mot de passe incorrect. Suppression annulée.');
+      } else {
+        toast.error(error.message ?? 'Erreur lors de la suppression. Réessayez.');
+      }
+      return;
+    }
+
+    // Succès — déconnecter puis rediriger vers l'accueil
+    setStep('done');
+    toast.success('Compte supprimé. À bientôt.', { duration: 4000 });
+    await signOut();
+    navigate('/', { replace: true });
+  };
+
+  const canDelete = typed === CONFIRM_WORD && password.length >= 1 && !loading;
+
+  return (
+    <section className="p-5 rounded-2xl border border-destructive/20 bg-destructive/5 flex flex-col gap-4">
+      {/* En-tête */}
+      <div className="flex items-center gap-2">
+        <AlertTriangle className="w-4 h-4 text-destructive shrink-0" />
+        <h2 className="text-sm font-semibold text-destructive">Zone sensible</h2>
+      </div>
+
+      {/* Description */}
+      <div className="flex flex-col gap-1.5">
+        <p className="text-xs text-muted-foreground leading-relaxed">
+          La suppression de compte est <span className="font-medium text-foreground">définitive et irréversible</span>.
+          Toutes vos données seront effacées : signalements, commentaires, votes, messages et fichiers joints.
+        </p>
+        <ul className="flex flex-col gap-1 mt-1">
+          {[
+            'Tous vos signalements déposés',
+            'Vos commentaires et votes',
+            'Votre avatar et fichiers uploadés',
+            'Vos messages privés',
+          ].map((item) => (
+            <li key={item} className="flex items-center gap-2 text-xs text-muted-foreground">
+              <X className="w-3 h-3 text-destructive/70 shrink-0" />
+              {item}
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      {/* Bouton déclencheur */}
+      <AlertDialog open={open} onOpenChange={handleOpen}>
+        <AlertDialogTrigger asChild>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="self-start gap-1.5 border border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            Supprimer mon compte
+          </Button>
+        </AlertDialogTrigger>
+
+        <AlertDialogContent className="max-w-[calc(100%-2rem)] md:max-w-lg">
+          {step === 'warn' && (
+            <>
+              <AlertDialogHeader>
+                <div className="flex items-center gap-2 mb-1">
+                  <AlertTriangle className="w-5 h-5 text-destructive shrink-0" />
+                  <AlertDialogTitle className="text-destructive">
+                    Suppression définitive du compte
+                  </AlertDialogTitle>
+                </div>
+                <AlertDialogDescription className="leading-relaxed">
+                  Cette action est <strong>irréversible</strong>. Vous perdrez l'accès à votre compte
+                  et toutes vos données seront définitivement effacées de nos serveurs.
+                  Aucune restauration ne sera possible.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter className="flex-col-reverse gap-2 sm:flex-row">
+                <AlertDialogCancel>Annuler</AlertDialogCancel>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="border border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  onClick={() => setStep('confirm')}
+                >
+                  Je comprends, continuer
+                </Button>
+              </AlertDialogFooter>
+            </>
+          )}
+
+          {step === 'confirm' && (
+            <>
+              <AlertDialogHeader>
+                <AlertDialogTitle className="text-destructive">
+                  Confirmation finale
+                </AlertDialogTitle>
+                <AlertDialogDescription asChild>
+                  <div className="flex flex-col gap-4 mt-2">
+                    {/* Saisie du mot de confirmation */}
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-xs font-medium text-foreground">
+                        Tapez{' '}
+                        <span className="font-mono font-bold tracking-widest text-destructive">
+                          {CONFIRM_WORD}
+                        </span>{' '}
+                        pour confirmer
+                      </label>
+                      <Input
+                        value={typed}
+                        onChange={(e) => setTyped(e.target.value.toUpperCase())}
+                        placeholder={CONFIRM_WORD}
+                        className={`font-mono tracking-widest ${
+                          typed.length > 0
+                            ? typed === CONFIRM_WORD
+                              ? 'border-destructive'
+                              : 'border-muted-foreground/40'
+                            : ''
+                        }`}
+                        autoFocus
+                        autoComplete="off"
+                        spellCheck={false}
+                      />
+                    </div>
+
+                    {/* Saisie du mot de passe */}
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-xs font-medium text-foreground">
+                        Confirmez avec votre mot de passe
+                      </label>
+                      <div className="relative">
+                        <Input
+                          type={showPwd ? 'text' : 'password'}
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          placeholder="Votre mot de passe actuel"
+                          className="pr-10"
+                          autoComplete="current-password"
+                        />
+                        <button
+                          type="button"
+                          tabIndex={-1}
+                          onClick={() => setShowPwd((v) => !v)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                        >
+                          {showPwd
+                            ? <EyeOff className="w-4 h-4" />
+                            : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    <p className="text-xs text-muted-foreground leading-relaxed p-3 rounded-lg bg-destructive/5 border border-destructive/15">
+                      Après confirmation, votre compte et toutes vos données seront supprimés
+                      <strong> immédiatement et définitivement</strong>. Vous serez déconnecté.
+                    </p>
+                  </div>
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+
+              <AlertDialogFooter className="flex-col-reverse gap-2 sm:flex-row mt-2">
+                <AlertDialogCancel onClick={() => { setStep('warn'); setPassword(''); setTyped(''); }}>
+                  Annuler
+                </AlertDialogCancel>
+                <Button
+                  size="sm"
+                  disabled={!canDelete}
+                  onClick={handleDelete}
+                  className="gap-1.5 bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  {loading
+                    ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Suppression…</>
+                    : <><Trash2 className="w-3.5 h-3.5" /> Supprimer définitivement</>}
+                </Button>
+              </AlertDialogFooter>
+            </>
+          )}
+        </AlertDialogContent>
+      </AlertDialog>
+    </section>
   );
 }
 
@@ -949,6 +1176,10 @@ function SecuriteTab({
 
   const handleChangePassword = async () => {
     if (!pwdMatch || pwdStrength.score < 2 || !currentPwd) return;
+    if (newPwd === currentPwd) {
+      toast.error('Le nouveau mot de passe doit être différent de l\'actuel.');
+      return;
+    }
     setSavingPwd(true);
     const { error } = await reauthAndUpdatePassword(currentPwd, newPwd);
     setSavingPwd(false);

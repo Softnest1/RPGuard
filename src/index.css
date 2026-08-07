@@ -84,6 +84,10 @@
     --success: 142 60% 40%;
     --warning: 38 92% 50%;
     --info: 211 75% 46%;
+
+    /* RPGuard — Signature accent : rouge bordeaux discret (header underline, dot actif) */
+    --sig: 0 65% 42%;
+    --sig-foreground: 0 0% 100%;
   }
 
   .dark {
@@ -111,6 +115,10 @@
 
     --destructive: 0 62.8% 55.6%;
     --destructive-foreground: 0 0% 100%;
+
+    /* RPGuard — Signature accent dark mode */
+    --sig: 0 72% 55%;
+    --sig-foreground: 0 0% 100%;
 
     --border: 220 10% 20%; /* Bordures un peu plus visibles pour bien séparer l'interface */
     --input: 220 10% 20%;

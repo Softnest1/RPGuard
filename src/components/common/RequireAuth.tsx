@@ -1,9 +1,8 @@
 // Garde centralisée — une seule source de vérité pour l'authentification
-// Utilisé dans App.tsx pour les routes nécessitant une connexion.
-// ✅ Remplace les gardes dupliquées dans SoumettreePage et TableauDeBordPage.
-import { Link } from 'react-router-dom';
-import { Lock } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+// Redirige vers /connexion avec l'URL de retour dans le state, puis revient
+// automatiquement à la page demandée après connexion réussie.
+import { useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 
 interface RequireAuthProps {
@@ -12,6 +11,17 @@ interface RequireAuthProps {
 
 export default function RequireAuth({ children }: RequireAuthProps) {
   const { user, loading } = useAuth();
+  const navigate  = useNavigate();
+  const location  = useLocation();
+
+  useEffect(() => {
+    // Attendre la résolution de la session avant de rediriger
+    if (loading) return;
+    if (!user) {
+      // Passer l'URL demandée dans le state pour y revenir après connexion
+      navigate('/connexion', { state: { from: location.pathname }, replace: true });
+    }
+  }, [user, loading, navigate, location.pathname]);
 
   // Spinner pendant la résolution de la session initiale
   if (loading) {
@@ -25,35 +35,8 @@ export default function RequireAuth({ children }: RequireAuthProps) {
     );
   }
 
-  // Mur connexion — affiché si non authentifié
-  if (!user) {
-    return (
-      <div className="min-h-[70vh] flex items-center justify-center px-4 py-16">
-        <div className="max-w-md w-full text-center">
-          <div className="w-16 h-16 rounded-2xl bg-primary/8 border border-primary/15 flex items-center justify-center mx-auto mb-6">
-            <Lock className="w-7 h-7 text-primary" aria-hidden="true" />
-          </div>
-          <h1 className="text-2xl font-semibold text-foreground mb-2">Connexion requise</h1>
-          <p className="text-muted-foreground text-sm leading-relaxed mb-1 max-w-sm mx-auto">
-            Cette page nécessite un compte RPGuard actif.
-          </p>
-          <p className="text-muted-foreground text-sm mb-8 max-w-sm mx-auto">
-            L'inscription est{' '}
-            <span className="text-foreground font-medium">100 % gratuite</span>{' '}
-            et ne nécessite aucune adresse email.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <Button asChild size="lg" className="w-full sm:w-auto rounded-full px-6">
-              <Link to="/inscription">Créer un compte gratuit</Link>
-            </Button>
-            <Button asChild size="lg" variant="outline" className="w-full sm:w-auto rounded-full px-6">
-              <Link to="/connexion">Se connecter</Link>
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // Ne rien rendre pendant la redirection (évite un flash de contenu protégé)
+  if (!user) return null;
 
   return <>{children}</>;
 }
