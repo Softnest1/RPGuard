@@ -371,9 +371,9 @@ export default function Header() {
                 /* Visiteur */
                 <div className="flex items-center gap-1.5 md:gap-2 lg:gap-2.5 2xl:gap-3 4xl:gap-5">
                   {/* Connexion — outline */}
-                  <Button asChild variant="outline" size="sm"
+                  <Button asChild variant="ghost" size="sm"
                     className="rounded-md shadow-none transition-colors font-medium
-                               border-border/80 text-foreground hover:bg-muted/60 hover:border-border
+                               border border-border/80 hover:bg-muted/60 hover:border-border
                                h-8 px-3 text-[12px]
                                lg:h-9 lg:px-4 lg:text-[13px]
                                2xl:h-10 2xl:px-5 2xl:text-[14px]

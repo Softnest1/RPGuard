@@ -1,5 +1,14 @@
 // Types correspondant au schéma de la base de données RPGuard
 
+// ── Utilitaires UI ─────────────────────────────────────────────────────────────
+export interface Option {
+  label: string;
+  value: string;
+  icon?: React.ComponentType<{ className?: string }>;
+  withCount?: boolean;
+}
+
+// ── Domaine ────────────────────────────────────────────────────────────────────
 export type UserRole = 'user' | 'admin';
 export type PlainteStatus = 'En attente' | 'Validée' | 'Rejetée' | 'Viral' | 'Résolue' | 'Perdue' | 'En Médiation';
 

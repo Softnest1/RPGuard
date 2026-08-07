@@ -55,3 +55,10 @@ firestore.rules
 
 # ── Build & cache Vite ─────────────────────────────────────────────────────
 stats.html
+
+# ── Médias locaux (screenshots/vidéos de debug) ───────────────────────────
+Screenshot_*.jpg
+Screenshot_*.png
+Screenrecorder-*.mp4
+*.mp4
+*.mov
